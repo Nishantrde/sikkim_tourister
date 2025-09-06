@@ -1,178 +1,66 @@
-<!doctype html>
+<!doctype html> 
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sikkim — Interactive GeoJSON Map (with Search & Enhanced Animations)</title>
-
-  <!-- Google Font (Nunito) -->
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Sikkim — Interactive GeoJSON Map (Dark, Wide Borders) — Real Roads</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
   <style>
     :root{
-      --sikkim-blue: #07119e;
-      --sikkim-yellow: #fff200;
-      --sikkim-red: #ff1b00;
-      --sikkim-green: #2ea043;
-      --sikkim-ochre: #f59e0b;
-      --muted: #9fb0c8;
-      --panel: rgba(3,6,23,0.70);
-      --glass: rgba(255,255,255,0.03);
-      --text: #e6eef8;
-      --shadow: 0 10px 30px rgba(2,6,23,0.6);
+      --sikkim-blue:#07119e;
+      --sikkim-yellow:#fff200;
+      --sikkim-red:#ff1b00;
+      --sikkim-green:#2ea043;
+      --muted:#9fb0c8;
+      --panel:rgba(3,6,23,0.70);
+      --glass:rgba(255,255,255,0.03);
+      --text:#e6eef8;
+      --border-dark: #000814; /* dark border color */
+      --shadow:0 10px 30px rgba(2,6,23,0.6);
     }
-
     html,body{ height:100%; margin:0; font-family: Nunito, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; color:var(--text); background: linear-gradient(180deg, #03061a 0%, #071227 60%, #081427 100%); }
-
-    .app{ display:grid; grid-template-columns:320px 1fr; gap:18px; padding:18px; height:100vh; box-sizing:border-box; }
-
-    .panel{
-      background:
-        linear-gradient(180deg, rgba(255,242,0,0.03), rgba(255,255,255,0.01)),
-        linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.04));
-      border-radius:14px; padding:18px; backdrop-filter: blur(6px) saturate(1.06); box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.04); color:var(--muted);
-      display:flex; flex-direction:column; gap:12px;
-      transform: translateY(18px); opacity:0; animation: slideIn .6s cubic-bezier(.2,.9,.22,1) forwards;
-    }
+    .app{ display:grid; grid-template-columns:360px 1fr; gap:18px; padding:18px; height:100vh; box-sizing:border-box; }
+    .panel{ background: linear-gradient(180deg, rgba(255,242,0,0.03), rgba(255,255,255,0.01)), linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.04)); border-radius:14px; padding:18px; backdrop-filter: blur(6px) saturate(1.06); box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.04); color:var(--muted); display:flex; flex-direction:column; gap:12px; transform: translateY(18px); opacity:0; animation: slideIn .6s cubic-bezier(.2,.9,.22,1) forwards; }
     @keyframes slideIn{ to{ transform:none; opacity:1; } }
-
-    .brand{ display:flex; align-items:center; gap:12px; }
     .logo{ width:54px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:800; color: #071227; font-size:16px; background: linear-gradient(90deg, var(--sikkim-blue) 0% 12%, var(--sikkim-yellow) 12% 88%, var(--sikkim-red) 88% 100%); box-shadow: 0 6px 18px rgba(3,8,40,0.6); border: 1px solid rgba(0,0,0,0.25); }
-
-    h1{ font-size:16px; margin:0; color:var(--text); letter-spacing:0.2px; }
     .subtitle{ font-size:12px; margin:0; color:var(--muted); }
-
-    .buddha-wrap{ display:flex; align-items:center; gap:10px; }
-    .buddha {
-      position: absolute; bottom: 1.25rem; right: 1.25rem; width: 140px; height: 140px; background-image: url("https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png"); background-repeat: no-repeat; background-size: contain; background-position: center; pointer-events: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.25)); opacity: 0.95; transform-origin:center center;
-      animation: floatY 4s ease-in-out infinite, gentle-appear .6s ease both;
-    }
-    @keyframes floatY{ 0%{ transform: translateY(0) } 50%{ transform: translateY(-8px) } 100%{ transform: translateY(0) } }
-    @keyframes gentle-appear{ from{ opacity:0; transform: translateY(14px) scale(.98) } to{ opacity:0.95; transform:none } }
-
-    .buddha-inline img{ display:block; width:64px; height:64px; }
-
-    .controls{ display:flex; flex-direction:column; gap:10px; }
-    .row{ display:flex; gap:8px; align-items:center; }
-    label{ font-size:13px; color:var(--text); }
-
-    button{ background:var(--glass); border:1px solid rgba(255,255,255,0.03); color:var(--text); padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease; }
-    button:active{ transform: translateY(1px); }
-    .small{ font-size:13px; padding:6px 8px; }
-    .btn-primary{ background: linear-gradient(90deg, var(--sikkim-ochre), var(--sikkim-blue)); color: white; border: none; box-shadow: 0 6px 18px rgba(6,10,50,0.45); }
-    button:hover{ transform: translateY(-4px) scale(1.01); box-shadow: 0 12px 30px rgba(2,6,23,0.45); }
-
-    .search{ display:flex; gap:8px; align-items:center; }
-    .search input{ flex:1; padding:9px; border-radius:10px; border:1px solid rgba(255,255,255,0.03); background:transparent; color:inherit; }
-    .search-results{ max-height:220px; overflow:auto; border-radius:10px; border:1px solid rgba(255,255,255,0.03); background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); margin-top:8px; transform-origin:top; opacity:0; transform:translateY(-6px); transition: all .18s ease; }
-    .search-results.show{ opacity:1; transform:none; }
-    .search-result{ padding:10px; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.01); cursor:pointer; color:var(--text); }
-    .search-result:hover{ background: rgba(255,255,255,0.01); }
-
-    .legend{ display:flex; flex-direction:column; gap:8px; padding-top:6px; color:var(--text); }
+    #map{ width:100%; height:100%; border-radius:12px; overflow:hidden; box-shadow: var(--shadow); }
+    .info{ position:absolute; left:28px; top:28px; z-index:1000; background: linear-gradient(180deg, rgba(3,6,23,0.86), rgba(4,7,35,0.80)); padding:12px 14px; border-radius:12px; color:var(--text); border:1px solid rgba(255,255,255,0.03); box-shadow: 0 10px 30px rgba(2,6,23,0.65); transition: left .22s ease, right .22s ease, transform .22s ease; max-width:360px; }
     .legend-item{ display:flex; gap:10px; align-items:center; font-size:13px; color:var(--text); }
     .swatch{ width:16px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 3px 10px rgba(2,6,23,0.35) inset; }
-    .swatch.glow{ animation: glow 2.2s ease-in-out infinite; }
-    @keyframes glow{ 0%{ box-shadow: 0 3px 10px rgba(2,6,23,0.35) inset; transform:scale(1) } 50%{ box-shadow: 0 10px 28px rgba(245,158,11,0.16); transform:scale(1.05) } 100%{ box-shadow: 0 3px 10px rgba(2,6,23,0.35) inset; transform:scale(1) } }
+    .nice-popup .leaflet-popup-content-wrapper{ border-radius:10px; background: linear-gradient(180deg, #06102a, #071227); color:var(--text); padding:12px; border:2px solid rgba(255,242,0,0.06); box-shadow: 0 10px 24px rgba(3,6,23,0.7); }
 
-    #map{ width:100%; height:100%; border-radius:12px; overflow:hidden; box-shadow: var(--shadow); }
-
-    .info{ position:absolute; left:28px; top:28px; z-index:1000; background: linear-gradient(180deg, rgba(3,6,23,0.86), rgba(4,7,35,0.80)); padding:12px 14px; border-radius:12px; color:var(--text); border:1px solid rgba(255,255,255,0.03); box-shadow: 0 10px 30px rgba(2,6,23,0.65); transition: left .22s ease, right .22s ease, transform .22s ease; max-width:320px; animation: floatSubtle 6s ease-in-out infinite; display:flex; gap:12px; align-items:flex-start; }
-    @keyframes floatSubtle{ 0%{ transform:translateY(0) } 50%{ transform:translateY(-4px) } 100%{ transform:translateY(0) } }
-
-    .info h3{ margin:0 0 6px 0; font-size:15px; letter-spacing:0.2px; color:var(--sikkim-yellow); }
-    .info p{ margin:0; font-size:13px; color:var(--muted); }
-    .info.moved-left{ left:28px; right:auto; transform:translateX(-8px); }
-
-    /* Info-card thumbnail layout */
-    .info .thumb { display:flex; gap:10px; align-items:flex-start; }
-    .info .thumb img { width:64px; height:64px; object-fit:contain; border-radius:8px; box-shadow:0 8px 20px rgba(2,6,23,0.45); flex:0 0 64px; }
-    .info .meta { min-width:0; }
-    .info pre { margin:8px 0 0 0; font-size:12px; color:#cbd5e1; max-height:90px; overflow:auto; white-space:pre-wrap; background:transparent; border:none; padding:0; }
-
-    .nice-popup .leaflet-popup-content-wrapper{ border-radius:10px; background: linear-gradient(180deg, #06102a, #071227); color:var(--text); padding:12px; border:2px solid rgba(255,242,0,0.06); box-shadow: 0 10px 24px rgba(3,6,23,0.7); transform-origin:center top; animation: popupFade .28s ease-out both; }
-    .nice-popup .leaflet-popup-tip{ background: linear-gradient(180deg,#06102a,#071227); }
-    @keyframes popupFade{ from{ transform: translateY(8px) scale(.98); opacity:0 } to{ transform:none; opacity:1 } }
-
-    .overlay-row{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text); }
-    .overlay-row input{ transform:scale(1.05); }
-
-    .marker-bounce{ animation: markerBounce .66s cubic-bezier(.2,.8,.2,1) both; }
-    @keyframes markerBounce{ 0%{ transform: translateY(0) } 30%{ transform: translateY(-18px) } 55%{ transform: translateY(0) } 70%{ transform: translateY(-6px) } 100%{ transform: translateY(0) } }
-
-    @media (max-width:880px){ .app{ grid-template-columns:1fr; grid-template-rows:auto 1fr; } .panel{ order:2; } #map{ order:1; min-height:60vh; } .info{ right:12px; left:12px; top:auto; bottom:18px; } }
-
-    button:focus, input:focus, select:focus { outline: 3px solid rgba(245,158,11,0.12); outline-offset:2px; box-shadow: 0 6px 18px rgba(245,158,11,0.06); }
+    /* Remove SVG focus box that appears on click */
+    .leaflet-interactive:focus,
+    .leaflet-interactive:active,
+    .leaflet-interactive:focus-visible { outline:none !important; box-shadow:none !important; }
+    .leaflet-container svg .leaflet-interactive { outline:none !important; -webkit-focus-ring-color: transparent; }
 
     .leaflet-interactive{ transition: transform 320ms cubic-bezier(.2,.9,.22,1), fill-opacity 360ms ease, stroke-width 260ms ease; transform-origin:center center; }
-
-    /* popup thumbnail layout */
-    .nice-popup .thumb {
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-    }
-    .nice-popup .thumb img {
-      width: 84px;
-      height: 84px;
-      object-fit: contain;
-      border-radius: 8px;
-      box-shadow: 0 8px 20px rgba(2,6,23,0.45);
-      flex: 0 0 84px;
-    }
-
-    /* tooltip styling */
-    .leaflet-tooltip.nice-tooltip {
-      background: linear-gradient(180deg, #06102a, #071227);
-      border: 1px solid rgba(255,242,0,0.06);
-      color: var(--text);
-      padding: 6px 8px;
-      border-radius: 8px;
-      box-shadow: 0 8px 20px rgba(2,6,23,0.55);
-      font-family: Nunito, system-ui, sans-serif;
-      font-size: 13px;
-    }
-    .leaflet-tooltip.nice-tooltip img {
-      width: 40px;
-      height: 40px;
-      object-fit: contain;
-      vertical-align: middle;
-      margin-right: 8px;
-      border-radius:6px;
-    }
+    .control-row{ display:flex; gap:8px; align-items:center; }
+    .small{ padding:6px 8px; border-radius:8px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.03); cursor:pointer; }
   </style>
 </head>
 <body>
   <div class="app">
     <aside class="panel" role="complementary" aria-label="Controls">
-      <div class="brand">
+      <div style="display:flex;gap:12px;align-items:center">
         <div class="logo">SK</div>
-
-        <div class="buddha-wrap" style="flex:1">
-          <div class="buddha-inline" aria-hidden="false" title="Buddha">
-            <!-- <img src="https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png" alt="Buddha" width="64" height="64" style="display:block; margin:auto;" /> -->
-          </div>
-
-          <div style="min-width:0">
-            <h1>Sikkim GeoJSON</h1>
-            <p class="subtitle">Interactive district map · neat popups · street view · search</p>
-          </div>
+        <div style="min-width:0">
+          <h1 style="margin:0;color:var(--text);font-size:16px">Sikkim GeoJSON</h1>
+          <p class="subtitle">Dark, wide borders enabled — real OSM roads</p>
         </div>
       </div>
 
-      <div>
-        <label style="font-size:13px;color:var(--text);display:block;margin-bottom:6px">Search place / village / landmark</label>
-        <div class="search">
-          <input id="searchInput" type="search" placeholder="e.g. Gangtok, Nathula Pass" aria-label="Search" />
-          <button id="searchBtn" class="small">Search</button>
-        </div>
-        <div id="searchResults" class="search-results" style="display:none"></div>
+      <div style="margin-top:6px">
+        <label style="font-size:13px;color:var(--text);display:block;margin-bottom:6px">Search place (Sikkim only)</label>
+        <div style="display:flex;gap:8px;align-items:center"><input id="searchInput" type="search" placeholder="e.g. Gangtok" style="flex:1;padding:8px;border-radius:8px;background:transparent;color:inherit;border:1px solid rgba(255,255,255,0.03)"><button id="searchBtn" class="small">Search</button></div>
+        <div id="searchResults" style="display:none;max-height:220px;overflow:auto;border-radius:10px;margin-top:8px"></div>
       </div>
 
-      <div class="controls">
-        <div class="row">
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px;align-items:center">
           <label style="flex:1">Base map</label>
           <select id="basemapSelect" style="background:transparent;color:inherit;border-radius:8px;padding:6px;border:1px solid rgba(255,255,255,0.03)">
             <option value="osm">OpenStreetMap</option>
@@ -181,52 +69,47 @@
           </select>
         </div>
 
-        <div class="row overlay-row" title="Show OpenStreetMap tiles on top of Satellite">
-          <input id="osmOverlayToggle" type="checkbox" />
-          <label for="osmOverlayToggle" style="margin:0">OpenStreet overlay (on satellite)</label>
-        </div>
-
-        <div class="row">
+        <div style="display:flex;gap:8px;align-items:center">
           <label style="flex:1">GeoJSON opacity</label>
           <input id="opacity" type="range" min="0" max="1" step="0.05" value="0.5" style="flex:1">
         </div>
 
-        <div class="row">
-          <button id="zoomToAll" class="small btn-primary">Zoom to Sikkim</button>
-          <button id="streetView" class="small">Open Street View</button>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="control-row"><input id="colorToggle" type="checkbox" checked /><label for="colorToggle">Show district colors</label></div>
+          <div class="control-row"><input id="borderToggle" type="checkbox" checked /><label for="borderToggle">Show borders (dark & wide)</label></div>
+          <div class="control-row"><input id="roadsToggle" type="checkbox" /><label for="roadsToggle">Show roads (OSM)</label></div>
+
+          <!-- Roads filter UI (new) -->
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="flex:1">Road filter</label>
+            <select id="roadsFilterSelect" style="background:transparent;color:inherit;border-radius:8px;padding:6px;border:1px solid rgba(255,255,255,0.03)">
+              <option value="major">Major roads (motorway/trunk/primary/...)</option>
+              <option value="national">National Highways only (ref starts with "NH")</option>
+            </select>
+          </div>
+
+          <div class="control-row"><input id="locationsToggle" type="checkbox" /><label for="locationsToggle">Show important locations</label></div>
+          <div class="control-row"><input id="citiesToggle" type="checkbox" /><label for="citiesToggle">Show cities</label></div>
         </div>
 
-        <div class="legend">
-          <div style="font-weight:600;color:var(--text)">Districts</div>
-          <div id="legendItems"></div>
-        </div>
+        <div style="display:flex;gap:8px"><button id="zoomToAll" class="small">Zoom to Sikkim</button><button id="streetView" class="small">Street View</button></div>
 
-        <div style="margin-top:6px" class="note">Tip: hover a district to highlight it, click to open details. Use the opacity slider to reveal basemap features.</div>
+        <div style="margin-top:6px"><strong style="color:var(--text)">Districts</strong><div id="legendItems" style="margin-top:8px"></div></div>
       </div>
     </aside>
 
     <main style="position:relative">
       <div id="map" role="application" aria-label="Map"></div>
-
-      <!-- Info card now includes a thumbnail area; updated by showInfo() -->
-      <div class="info" id="infoCard" aria-live="polite">
-        <!-- default content: Buddha + instruction text -->
-        <div class="thumb" style="align-items:center">
-          <!-- <img src="https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png" alt="Buddha" /> -->
-          <div class="meta">
-            <h3>Hover over a district</h3>
-            <p id="infoText">District name, code and other properties appear here.</p>
-          </div>
-        </div>
-      </div>
+      <div class="info" id="infoCard"><div style="display:flex;gap:10px;align-items:center"><img src="https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png" style="width:64px;height:64px;object-fit:contain;border-radius:8px"><div><h3 style="margin:0;color:var(--sikkim-yellow)">Hover over a district</h3><p id="infoText" style="margin:0;color:var(--muted)">District name, code and other properties appear here.</p></div></div></div>
     </main>
   </div>
 
-  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <script>
-    // --- SAMPLE GEOJSON (replace this entire object with your full Sikkim GeoJSON) ---
+    /***********************
+     *  PLACEHOLDER GEOJSON
+     *  Replace these with your real data (or fetch externally)
+     ***********************/
     const geojson = {
 "type": "FeatureCollection",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
@@ -237,22 +120,56 @@
 { "type": "Feature", "properties": { "REMARKS_2": null, "Country": "India", "State_Name": "Sikkim", "State_Code": "11", "Dist_Name": "South District", "Dist_Code": "243" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 88.414451, 27.418662 ], [ 88.421600000000112, 27.41324 ], [ 88.427512, 27.404511 ], [ 88.431549, 27.399932 ], [ 88.438445, 27.393571000000115 ], [ 88.44867, 27.388589 ], [ 88.458923, 27.387511 ], [ 88.46544, 27.385589 ], [ 88.473503, 27.38109 ], [ 88.481004, 27.378401000000103 ], [ 88.476067, 27.36636 ], [ 88.47531, 27.36048 ], [ 88.476776, 27.352660000000121 ], [ 88.483338, 27.342532 ], [ 88.481339, 27.333671000000148 ], [ 88.47779, 27.32879100000013 ], [ 88.469031, 27.323791 ], [ 88.462112, 27.321919 ], [ 88.456779, 27.317662 ], [ 88.449547, 27.315381000000109 ], [ 88.446908, 27.305959 ], [ 88.442062000000107, 27.30092 ], [ 88.443336, 27.29601 ], [ 88.437668, 27.2812300000001 ], [ 88.436668, 27.27396 ], [ 88.438591, 27.266532 ], [ 88.442092, 27.26126 ], [ 88.454055, 27.25597 ], [ 88.459847000000124, 27.250551000000137 ], [ 88.470481, 27.24743 ], [ 88.475999, 27.24674 ], [ 88.485938, 27.23954000000014 ], [ 88.489762, 27.230531 ], [ 88.487481, 27.218481 ], [ 88.486312, 27.202329 ], [ 88.492074, 27.19329 ], [ 88.499016, 27.18513 ], [ 88.520752, 27.178181000000102 ], [ 88.520478000000111, 27.175029000000102 ], [ 88.529809, 27.16579 ], [ 88.526725, 27.160272 ], [ 88.532029, 27.15433 ], [ 88.52993, 27.15015 ], [ 88.526741, 27.149772 ], [ 88.521714, 27.15034200000013 ], [ 88.518707, 27.147800000000124 ], [ 88.515961, 27.143739 ], [ 88.51223, 27.141031000000105 ], [ 88.507508, 27.13599 ], [ 88.502952, 27.13405 ], [ 88.498902, 27.131220000000148 ], [ 88.496406, 27.128152 ], [ 88.495613, 27.12536 ], [ 88.491852, 27.12487 ], [ 88.486686, 27.12678 ], [ 88.481277, 27.122851000000132 ], [ 88.473779, 27.120701 ], [ 88.469077, 27.117301000000104 ], [ 88.46672, 27.113942 ], [ 88.464799, 27.104791 ], [ 88.460182, 27.09585 ], [ 88.454497, 27.08965 ], [ 88.446281, 27.0854 ], [ 88.439621, 27.084169 ], [ 88.431945, 27.08161 ], [ 88.429147, 27.08362 ], [ 88.411002, 27.090701000000131 ], [ 88.39766, 27.09443 ], [ 88.38752, 27.098409 ], [ 88.37065, 27.099412 ], [ 88.363877, 27.098421 ], [ 88.352303, 27.101071 ], [ 88.347939, 27.103321 ], [ 88.34516, 27.106901 ], [ 88.340798, 27.110671 ], [ 88.331741000000122, 27.108168 ], [ 88.323837, 27.1049 ], [ 88.320076, 27.107321 ], [ 88.320489000000109, 27.116640000000125 ], [ 88.318818, 27.119341000000126 ], [ 88.311272, 27.125351 ], [ 88.304496, 27.128601 ], [ 88.299888, 27.127999 ], [ 88.294905000000128, 27.124772 ], [ 88.278138, 27.13083 ], [ 88.275239, 27.142581000000114 ], [ 88.276656, 27.144559 ], [ 88.277322, 27.14886 ], [ 88.27974, 27.150779 ], [ 88.282149, 27.15111 ], [ 88.285568, 27.15423 ], [ 88.289292, 27.16331 ], [ 88.291573000000128, 27.164340000000145 ], [ 88.295165, 27.169099 ], [ 88.295968, 27.173700000000103 ], [ 88.299559, 27.17648100000013 ], [ 88.304642, 27.17814 ], [ 88.307258, 27.181730000000123 ], [ 88.314766, 27.185641 ], [ 88.323762, 27.187619000000147 ], [ 88.32579, 27.188891 ], [ 88.324028, 27.191931 ], [ 88.329528, 27.19458 ], [ 88.326866, 27.198801 ], [ 88.326927, 27.201312000000136 ], [ 88.324172, 27.20453000000014 ], [ 88.31813, 27.220559000000144 ], [ 88.315017, 27.223281 ], [ 88.305488, 27.224849 ], [ 88.302757, 27.22615 ], [ 88.298301, 27.237031 ], [ 88.300599, 27.246179 ], [ 88.300697, 27.256611 ], [ 88.299019, 27.261012 ], [ 88.29158, 27.266379 ], [ 88.284378, 27.273242000000145 ], [ 88.278961, 27.275671 ], [ 88.276016000000126, 27.27832 ], [ 88.27337, 27.28167 ], [ 88.274102, 27.28644 ], [ 88.275275, 27.288300000000103 ], [ 88.2856, 27.294991 ], [ 88.290901, 27.297179 ], [ 88.301467, 27.299591 ], [ 88.304421, 27.302791 ], [ 88.305978, 27.305749 ], [ 88.305617, 27.3157910000001 ], [ 88.303673, 27.318831 ], [ 88.300163, 27.32142 ], [ 88.295081, 27.32344 ], [ 88.291749, 27.326852000000141 ], [ 88.293007, 27.331038 ], [ 88.295304, 27.334220000000123 ], [ 88.299881000000127, 27.3377 ], [ 88.314584, 27.346051 ], [ 88.317672, 27.349410000000141 ], [ 88.322868000000128, 27.365000000000116 ], [ 88.325546, 27.368829 ], [ 88.334107000000117, 27.372149 ], [ 88.344247, 27.37413 ], [ 88.353188, 27.378371000000122 ], [ 88.352287, 27.384438 ], [ 88.353233, 27.390041 ], [ 88.352479, 27.39938 ], [ 88.349876, 27.403 ], [ 88.345596, 27.41208 ], [ 88.342849000000101, 27.41425 ], [ 88.337890000000115, 27.4112 ], [ 88.333817, 27.40633 ], [ 88.328621, 27.410571 ], [ 88.326348, 27.417169 ], [ 88.320411, 27.417632000000133 ], [ 88.311204, 27.41543 ], [ 88.300537, 27.416959 ], [ 88.295197, 27.41466 ], [ 88.290283, 27.4105 ], [ 88.278908, 27.40527000000014 ], [ 88.273988, 27.405890000000106 ], [ 88.269593, 27.411991 ], [ 88.269402, 27.419692 ], [ 88.261277, 27.461911 ], [ 88.260757, 27.48991 ], [ 88.263023, 27.498229000000144 ], [ 88.266136000000117, 27.503690000000113 ], [ 88.271057, 27.509321 ], [ 88.276305, 27.513009 ], [ 88.285682, 27.518948 ], [ 88.313927, 27.527201 ], [ 88.323531000000102, 27.52817 ], [ 88.329872, 27.52773 ], [ 88.337327, 27.52644 ], [ 88.350448, 27.521392 ], [ 88.355927, 27.517321 ], [ 88.359428, 27.51042 ], [ 88.370361, 27.49762 ], [ 88.393478, 27.479070000000146 ], [ 88.400407, 27.47575 ], [ 88.402153, 27.470321000000119 ], [ 88.401931, 27.46344 ], [ 88.403611000000112, 27.45846 ], [ 88.410888, 27.44662 ], [ 88.4090810000001, 27.439359 ], [ 88.409393, 27.4299 ], [ 88.41159, 27.42358 ], [ 88.414451, 27.418662 ] ] ] } },
 { "type": "Feature", "properties": { "REMARKS_2": null, "Country": "India", "State_Name": "Sikkim", "State_Code": "11", "Dist_Name": "West District", "Dist_Code": "242" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ 88.273988, 27.405890000000106 ], [ 88.278908, 27.40527000000014 ], [ 88.290283, 27.4105 ], [ 88.295197, 27.41466 ], [ 88.300537, 27.416959 ], [ 88.311204, 27.41543 ], [ 88.320411, 27.417632000000133 ], [ 88.326348, 27.417169 ], [ 88.328621, 27.410571 ], [ 88.333817, 27.40633 ], [ 88.337890000000115, 27.4112 ], [ 88.342849000000101, 27.41425 ], [ 88.345596, 27.41208 ], [ 88.349876, 27.403 ], [ 88.352479, 27.39938 ], [ 88.353233, 27.390041 ], [ 88.352287, 27.384438 ], [ 88.353188, 27.378371000000122 ], [ 88.344247, 27.37413 ], [ 88.334107000000117, 27.372149 ], [ 88.325546, 27.368829 ], [ 88.322868000000128, 27.365000000000116 ], [ 88.317672, 27.349410000000141 ], [ 88.314584, 27.346051 ], [ 88.299881000000127, 27.3377 ], [ 88.295304, 27.334220000000123 ], [ 88.293007, 27.331038 ], [ 88.291749, 27.326852000000141 ], [ 88.295081, 27.32344 ], [ 88.300163, 27.32142 ], [ 88.303673, 27.318831 ], [ 88.305617, 27.3157910000001 ], [ 88.305978, 27.305749 ], [ 88.304421, 27.302791 ], [ 88.301467, 27.299591 ], [ 88.290901, 27.297179 ], [ 88.2856, 27.294991 ], [ 88.275275, 27.288300000000103 ], [ 88.274102, 27.28644 ], [ 88.27337, 27.28167 ], [ 88.276016000000126, 27.27832 ], [ 88.278961, 27.275671 ], [ 88.284378, 27.273242000000145 ], [ 88.29158, 27.266379 ], [ 88.299019, 27.261012 ], [ 88.300697, 27.256611 ], [ 88.300599, 27.246179 ], [ 88.298301, 27.237031 ], [ 88.302757, 27.22615 ], [ 88.305488, 27.224849 ], [ 88.315017, 27.223281 ], [ 88.31813, 27.220559000000144 ], [ 88.324172, 27.20453000000014 ], [ 88.326927, 27.201312000000136 ], [ 88.326866, 27.198801 ], [ 88.329528, 27.19458 ], [ 88.324028, 27.191931 ], [ 88.32579, 27.188891 ], [ 88.323762, 27.187619000000147 ], [ 88.314766, 27.185641 ], [ 88.307258, 27.181730000000123 ], [ 88.304642, 27.17814 ], [ 88.299559, 27.17648100000013 ], [ 88.295968, 27.173700000000103 ], [ 88.295165, 27.169099 ], [ 88.291573000000128, 27.164340000000145 ], [ 88.289292, 27.16331 ], [ 88.285568, 27.15423 ], [ 88.282149, 27.15111 ], [ 88.27974, 27.150779 ], [ 88.277322, 27.14886 ], [ 88.276656, 27.144559 ], [ 88.275239, 27.142581000000114 ], [ 88.278138, 27.13083 ], [ 88.277352, 27.131192 ], [ 88.27089, 27.13013 ], [ 88.263458, 27.12737 ], [ 88.251549, 27.12536 ], [ 88.240067, 27.120371 ], [ 88.232505, 27.119769 ], [ 88.226905, 27.12139 ], [ 88.221513, 27.125271 ], [ 88.213837, 27.135122 ], [ 88.209869, 27.133401 ], [ 88.195617000000126, 27.136231 ], [ 88.188506000000118, 27.13442 ], [ 88.183677, 27.135201 ], [ 88.178993, 27.134711000000145 ], [ 88.172607, 27.130319 ], [ 88.15844, 27.114352 ], [ 88.155441, 27.1121 ], [ 88.152314, 27.11171 ], [ 88.143776, 27.117071 ], [ 88.136626, 27.116879 ], [ 88.126908, 27.123081 ], [ 88.123291, 27.12379 ], [ 88.095939, 27.13550900000012 ], [ 88.092666000000108, 27.136279 ], [ 88.088639, 27.13875 ], [ 88.085845, 27.141510000000146 ], [ 88.083832, 27.14502 ], [ 88.082991, 27.14894 ], [ 88.083908, 27.161069 ], [ 88.08326, 27.165042000000135 ], [ 88.078698, 27.167921000000142 ], [ 88.073098, 27.174418 ], [ 88.072327, 27.179341 ], [ 88.06926700000011, 27.184950000000121 ], [ 88.067452, 27.190270000000105 ], [ 88.068833, 27.194352000000144 ], [ 88.075409, 27.198801 ], [ 88.074951, 27.20084 ], [ 88.068236, 27.204731 ], [ 88.064339, 27.207831 ], [ 88.061736, 27.211299000000103 ], [ 88.058197, 27.213891 ], [ 88.04676, 27.216111 ], [ 88.032928, 27.221031 ], [ 88.023987, 27.220662 ], [ 88.009141, 27.216890000000141 ], [ 88.009308, 27.219231 ], [ 88.0093, 27.21937 ], [ 88.009346, 27.21995 ], [ 88.009827, 27.221771 ], [ 88.012589, 27.225389000000114 ], [ 88.015771, 27.232379 ], [ 88.016938, 27.233571 ], [ 88.021058, 27.2398 ], [ 88.02109, 27.239833 ], [ 88.021186, 27.239932 ], [ 88.022057, 27.240641000000146 ], [ 88.025512, 27.248110000000104 ], [ 88.024757, 27.26913 ], [ 88.027428, 27.280910000000112 ], [ 88.031182, 27.28606 ], [ 88.034394, 27.290011000000103 ], [ 88.035889, 27.2941 ], [ 88.036583, 27.301111 ], [ 88.040993, 27.312231 ], [ 88.043167, 27.315269000000107 ], [ 88.047225000000125, 27.322241 ], [ 88.052772, 27.327271 ], [ 88.053809000000101, 27.328862 ], [ 88.054489, 27.329532 ], [ 88.057167, 27.338371 ], [ 88.056992, 27.342311 ], [ 88.05687, 27.343571 ], [ 88.056076, 27.346951 ], [ 88.053459, 27.353711 ], [ 88.049309, 27.357611000000126 ], [ 88.049155, 27.35819 ], [ 88.044326, 27.360786000000125 ], [ 88.042892, 27.361556 ], [ 88.04216, 27.361950000000142 ], [ 88.042152, 27.362399 ], [ 88.040618, 27.363446000000117 ], [ 88.03946, 27.364232000000126 ], [ 88.037628, 27.367830000000133 ], [ 88.03656, 27.372803 ], [ 88.036392, 27.37359 ], [ 88.036316, 27.383222 ], [ 88.038803, 27.39904 ], [ 88.040994, 27.407449000000152 ], [ 88.042961, 27.411301000000144 ], [ 88.04612, 27.414961000000112 ], [ 88.049637, 27.4174 ], [ 88.054779, 27.4209 ], [ 88.059029, 27.422728 ], [ 88.059593000000106, 27.42297 ], [ 88.06057, 27.423929 ], [ 88.062844, 27.42616 ], [ 88.062973, 27.426821 ], [ 88.063308, 27.42908 ], [ 88.061729, 27.43336 ], [ 88.062782, 27.44346 ], [ 88.060806, 27.451231 ], [ 88.056198, 27.45503 ], [ 88.052536, 27.462931 ], [ 88.05069, 27.46434 ], [ 88.047309, 27.466841 ], [ 88.045601, 27.46814 ], [ 88.044372, 27.471009 ], [ 88.043601000000109, 27.471451 ], [ 88.042572, 27.47234 ], [ 88.039932000000107, 27.481149 ], [ 88.039696, 27.485620000000146 ], [ 88.039649, 27.48654 ], [ 88.039299, 27.493361 ], [ 88.039276, 27.49379 ], [ 88.040038999999894, 27.496059 ], [ 88.043777, 27.502881000000109 ], [ 88.046806000000103, 27.505381 ], [ 88.046792, 27.505850000000116 ], [ 88.047302, 27.505850000000116 ], [ 88.048043, 27.506532 ], [ 88.052018, 27.511751 ], [ 88.052818, 27.514238 ], [ 88.053878, 27.517531 ], [ 88.054947, 27.522871000000116 ], [ 88.055893, 27.52368000000012 ], [ 88.060013, 27.527201 ], [ 88.061966, 27.531741 ], [ 88.062088000000116, 27.532641 ], [ 88.06195, 27.534451 ], [ 88.06163, 27.534651 ], [ 88.059165, 27.535939 ], [ 88.056159, 27.53755 ], [ 88.055314000000109, 27.537811 ], [ 88.055177000000114, 27.538260000000143 ], [ 88.055164, 27.539173 ], [ 88.055153, 27.540051 ], [ 88.058135, 27.54414 ], [ 88.058837, 27.54847 ], [ 88.059013, 27.549570000000127 ], [ 88.062256, 27.553011 ], [ 88.06314, 27.553363 ], [ 88.064538, 27.553921 ], [ 88.071846, 27.558041000000109 ], [ 88.072578, 27.558731 ], [ 88.07309, 27.56031 ], [ 88.073383, 27.560554 ], [ 88.074212, 27.561240000000105 ], [ 88.075363, 27.56214 ], [ 88.075394, 27.569181 ], [ 88.075402, 27.570069 ], [ 88.073212, 27.573431 ], [ 88.072448, 27.573860000000131 ], [ 88.071632, 27.57976 ], [ 88.07534, 27.58725 ], [ 88.077843, 27.590440000000108 ], [ 88.078233, 27.590739000000148 ], [ 88.086166, 27.596809 ], [ 88.086166, 27.59726 ], [ 88.096862, 27.602980000000109 ], [ 88.098808, 27.60401 ], [ 88.09951, 27.60438 ], [ 88.103043, 27.60758 ], [ 88.105789, 27.612329 ], [ 88.107437000000104, 27.613929 ], [ 88.10765, 27.614080000000108 ], [ 88.108062, 27.614371 ], [ 88.108269, 27.615222000000124 ], [ 88.108528, 27.616289000000101 ], [ 88.109016, 27.61833 ], [ 88.12139, 27.611579 ], [ 88.15815099999989, 27.600282 ], [ 88.204216, 27.581502 ], [ 88.212433, 27.5738 ], [ 88.2266, 27.557261 ], [ 88.232323, 27.540559 ], [ 88.236099000000124, 27.53498 ], [ 88.242622, 27.531600000000132 ], [ 88.257972, 27.525909 ], [ 88.276305, 27.513009 ], [ 88.271057, 27.509321 ], [ 88.266136000000117, 27.503690000000113 ], [ 88.263023, 27.498229000000144 ], [ 88.260757, 27.48991 ], [ 88.261277, 27.461911 ], [ 88.269402, 27.419692 ], [ 88.269593, 27.411991 ], [ 88.273988, 27.405890000000106 ] ] ] } }
 ]
-};// --- END SAMPLE GEOJSON --- 
+}; // replace with your district GeoJSON (FeatureCollection) 
 
-    // Map setup
-    const map = L.map('map', { zoomControl: false });
+    // small placeholder for locations (so toggle won't error if you don't provide data)
+    const locationsGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        /* add features like airports, govt buildings if you have them */
+      ]
+    };
+
+    // Sample cities (points) — replace with your own data if available
+    const citiesGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        { "type":"Feature","properties":{"name":"Gangtok","pop":100000},"geometry":{"type":"Point","coordinates":[88.6065,27.3389]}},
+        { "type":"Feature","properties":{"name":"Namchi","pop":29000},"geometry":{"type":"Point","coordinates":[88.3496,27.1667]}},
+        { "type":"Feature","properties":{"name":"Jorethang","pop":14000},"geometry":{"type":"Point","coordinates":[88.4346,27.1661]}},
+        { "type":"Feature","properties":{"name":"Rangpo","pop":8000},"geometry":{"type":"Point","coordinates":[88.4670,27.1511]}},
+        { "type":"Feature","properties":{"name":"Singtam","pop":12000},"geometry":{"type":"Point","coordinates":[88.4667,27.2833]}},
+        { "type":"Feature","properties":{"name":"Pakyong","pop":6000},"geometry":{"type":"Point","coordinates":[88.5560,27.2460]}},
+        { "type":"Feature","properties":{"name":"Mangan","pop":7000},"geometry":{"type":"Point","coordinates":[88.6167,27.5167]}},
+        { "type":"Feature","properties":{"name":"Gyalshing (Geyzing)","pop":15000},"geometry":{"type":"Point","coordinates":[88.2952,27.2841]}},
+        { "type":"Feature","properties":{"name":"Pelling","pop":5000},"geometry":{"type":"Point","coordinates":[88.1598,27.2860]}},
+        { "type":"Feature","properties":{"name":"Soreng","pop":8000},"geometry":{"type":"Point","coordinates":[88.1600,27.1370]}},
+        { "type":"Feature","properties":{"name":"Ravangla","pop":4500},"geometry":{"type":"Point","coordinates":[88.3520,27.2140]}},
+        { "type":"Feature","properties":{"name":"Chungthang","pop":3000},"geometry":{"type":"Point","coordinates":[88.5076,27.6295]}}
+      ]
+    };
+
+    /***********************
+     *  Map & base layers
+     ***********************/
+    const map = L.map('map', { zoomControl:false });
     L.control.scale({position:'bottomleft'}).addTo(map);
     L.control.zoom({position:'bottomright'}).addTo(map);
 
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap contributors'});
-    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {attribution:'Tiles © Esri'});
-    const gray = L.tileLayer('https://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png', {maxZoom:18, attribution:'© OpenStreetMap contributors'});
+    // ----- tile layers -----
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' });
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+    const gray = L.tileLayer('https://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap contributors' });
 
+    osm.setZIndex(0); satellite.setZIndex(0); gray.setZIndex(0);
     osm.addTo(map);
 
     const osmOverlay = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors', pane: 'overlayPane' });
     osmOverlay.setZIndex(650);
 
+    /***********************
+     *  Colors & style helpers
+     ***********************/
     const districtColors = {
       'East District':   '#fff200',
       'North  District': '#07119e',
@@ -261,78 +178,192 @@
     };
     function getColorByName(name){ return districtColors[name] || '#94a3b8'; }
 
-    function style(feature){
+    const BASE_BORDER_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--border-dark') || '#000814';
+    const BASE_BORDER_WEIGHT = 4; // default wide border
+
+    function baseStyle(feature){
       const name = feature.properties && (feature.properties.Dist_Name || feature.properties.DIST_NAME || feature.properties.Dist || feature.properties.name);
-      return { color:'#071227', weight:2, fillColor:getColorByName(name), fillOpacity:0.5, dashArray:'', lineJoin:'round' };
+      return { color: BASE_BORDER_COLOR, weight: BASE_BORDER_WEIGHT, fillColor:getColorByName(name), fillOpacity:0.5, dashArray:'', lineJoin:'round' };
     }
 
-    // info card DOM
-    const infoCard = document.getElementById('infoCard');
-    const infoText = document.getElementById('infoText');
-    // thumbnail used in info/popup/tooltip
-    const thumbUrl = 'https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png';
+    const svgRenderer = L.svg();
 
-    // showInfo now updates the info card to include the Buddha image and properties
+    /***********************
+     *  Info card
+     ***********************/
+    const infoCard = document.getElementById('infoCard');
+    const thumbUrl = 'https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png';
     function showInfo(props){
       if(!props){
-        // default content
-        infoCard.innerHTML = `
-          <div class="thumb" style="align-items:center">
-            <img src="${thumbUrl}" alt="Buddha" />
-            <div class="meta">
-              <h3>Hover over a district</h3>
-              <p id="infoText">District name, code and other properties appear here.</p>
-            </div>
-          </div>
-        `;
+        infoCard.innerHTML = `<div style="display:flex;gap:10px;align-items:center"><img src="${thumbUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px"><div><h3 style="margin:0;color:var(--sikkim-yellow)">Hover over a district</h3><p id="infoText" style="margin:0;color:var(--muted)">District name, code and other properties appear here.</p></div></div>`;
         return;
       }
-
-      // Build concise properties preview (first few keys)
-      const previewObj = {};
-      const keys = Object.keys(props).slice(0,6); // limit preview length
-      keys.forEach(k => previewObj[k] = props[k]);
-
-      
+      infoCard.innerHTML = `<div style="display:flex;gap:10px;align-items:center"><img src="${thumbUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px"><div><h3 style="margin:0;color:var(--sikkim-yellow)">${props.Dist_Name||props.name||props.title||'Feature'}</h3><p style="margin:0;color:var(--muted)">${props.State_Name||props.type||''}</p></div></div>`;
     }
 
-    // Bind popup + tooltip in onEachFeature
+    /***********************
+     *  Layer creation & toggle logic
+     ***********************/
+    const opacityEl = document.getElementById('opacity');
+    const colorToggle = document.getElementById('colorToggle');
+    const borderToggle = document.getElementById('borderToggle');
+    const roadsToggle = document.getElementById('roadsToggle');
+    const locationsToggle = document.getElementById('locationsToggle');
+    const citiesToggle = document.getElementById('citiesToggle');
+
     const geoLayer = L.geoJSON(geojson, {
-      style: style,
+      renderer: svgRenderer,
+      style: baseStyle,
       onEachFeature: function(feature, layer){
         const p = feature.properties || {};
+        const tooltipHtml = `<div style="display:flex;align-items:center"><div style="line-height:1.05;"><div style="font-weight:700;color:var(--text);">${p.Dist_Name || 'District'}</div><div style="font-size:11px;color:var(--muted)">${p.State_Name || ''}</div></div></div>`;
+        layer.bindTooltip(tooltipHtml, { className: 'nice-tooltip', direction: 'top', offset: [0, -8], opacity: 0.95 });
 
-        // Tooltip HTML (small)
-        const tooltipHtml = `
-          <div style="display:flex;align-items:center">
-            <div style="line-height:1.05;">
-              <div style="font-weight:700;color:var(--text);">${p.Dist_Name || 'District'}</div>
-              <div style="font-size:11px;color:var(--muted)">${p.State_Name || ''}</div>
-            </div>
-          </div>
-        `;
-        layer.bindTooltip(tooltipHtml, {
-          className: 'nice-tooltip',
-          direction: 'top',
-          offset: [0, -8],
-          opacity: 0.95
-        });
-
-        // interactions
         layer.on({
-          mouseover: function(e){
-            const layer = e.target;
-            layer.setStyle({weight:3,fillOpacity:0.7});
-            if(!L.Browser.ie && !L.Browser.opera && !L.Browser.edge){ layer.bringToFront(); }
+          mouseover(e){
+            const l = e.target;
+            const showColors = colorToggle.checked;
+            const showBorders = borderToggle.checked;
+            const name = l.feature && (l.feature.properties && (l.feature.properties.Dist_Name || l.feature.properties.name));
+            const color = getColorByName(name);
+            const fillOpacity = showColors ? 0.7 : 0;
+            const strokeOpacity = showBorders ? 0.95 : 0;
+            const strokeColor = showBorders ? BASE_BORDER_COLOR : 'transparent';
+            const weight = showBorders ? 6 : 0;
+            try{
+              l.setStyle({ weight, fillColor: color, fillOpacity, color: strokeColor, opacity: strokeOpacity });
+              const el = l.getElement && l.getElement();
+              if(el){
+                el.setAttribute('fill', showColors ? color : 'transparent');
+                el.setAttribute('fill-opacity', String(fillOpacity));
+                el.setAttribute('stroke-opacity', String(strokeOpacity));
+                el.setAttribute('stroke', strokeColor);
+                el.setAttribute('stroke-width', weight + 'px');
+                el.setAttribute('tabindex','-1'); el.setAttribute('focusable','false');
+                el.style.outline='none'; el.style.boxShadow='none';
+              }
+            }catch(e){}
+            if(!L.Browser.ie && !L.Browser.opera && !L.Browser.edge){ l.bringToFront(); }
             showInfo(feature.properties);
           },
-          mouseout: function(e){ geoLayer.resetStyle(e.target); showInfo(); },
-          click: function(e){ map.flyToBounds(e.target.getBounds(),{padding:[30,30],duration:0.9}); e.target.openPopup(); }
+          mouseout(e){
+            updateLayerDisplay(e.target);
+            showInfo();
+          },
+          click(e){
+            map.flyToBounds(e.target.getBounds(), {padding:[30,30], duration:0.9});
+            if(e.target.openPopup) e.target.openPopup();
+          }
         });
+
+        setTimeout(()=> updateLayerDisplay(layer), 0);
       }
     }).addTo(map);
 
-    // bounds & view
+    // roads layer will be created from Overpass (OSM) — see code further down
+    let roadsLayer = null;
+
+    let locationsLayer = null;
+    function createLocationsLayer(){
+      if(locationsLayer) return locationsLayer;
+      locationsLayer = L.geoJSON(locationsGeoJSON, {
+        pointToLayer(feature, latlng){
+          const t = (feature.properties && feature.properties.type) || 'place';
+          return L.circleMarker(latlng, { radius:8, fill:true, fillOpacity:1, fillColor: (t==='airport'? '#ffcc00' : '#fff200'), color:'#111827', weight:1, opacity:0.95 });
+        },
+        onEachFeature(feature, layer){ const name = (feature.properties && feature.properties.name) || 'Location'; layer.bindPopup(`<strong>${name}</strong>`); }
+      });
+      return locationsLayer;
+    }
+
+    // === PANES: ensure roads < cities ===
+    // roadsPane below tooltip (650) and popup (700), above markers (600)
+    if(!map.getPane('roadsPane')){
+      map.createPane('roadsPane');
+      map.getPane('roadsPane').style.zIndex = 620; // CHANGED: was 650, keep below cities/tooltip
+      map.getPane('roadsPane').style.pointerEvents = 'auto';
+    }
+    // NEW: dedicated cities pane above roads
+    if(!map.getPane('citiesPane')){
+      map.createPane('citiesPane');
+      map.getPane('citiesPane').style.zIndex = 680; // above roads & tooltips; below popups(700)
+      map.getPane('citiesPane').style.pointerEvents = 'auto';
+    }
+
+    let citiesLayer = null;
+    function createCitiesLayer(){
+      if(citiesLayer) return citiesLayer;
+      citiesLayer = L.geoJSON(citiesGeoJSON, {
+        pane: 'citiesPane', // NEW: force into high z-index pane
+        pointToLayer(feature, latlng){
+          const name = (feature.properties && feature.properties.name) || '';
+          const iconHtml = `<div style="display:flex;flex-direction:column;align-items:center;font-size:12px;line-height:1;pointer-events:auto">
+                              <div style="background:rgba(7,17,158,0.95);color:white;padding:4px 6px;border-radius:12px;font-weight:700">${name}</div>
+                              <div style="width:10px;height:10px;border-radius:50%;background:rgba(245,158,11,0.95);margin-top:4px"></div>
+                            </div>`;
+          const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [70, 36], iconAnchor: [35, 36] });
+          // Optional: extra bump just in case
+          return L.marker(latlng, { icon, zIndexOffset: 1000 }); // NEW
+        },
+        onEachFeature(feature, layer){
+          const name = (feature.properties && feature.properties.name) || '';
+          const pop = (feature.properties && feature.properties.pop) ? `<br>Pop: ${feature.properties.pop}` : '';
+          layer.bindPopup(`<strong>${name}</strong>${pop}`);
+        }
+      });
+      return citiesLayer;
+    }
+
+    /***********************
+     *  Display & toggles helpers
+     ***********************/
+    function updateLayerDisplay(layer){
+      if(!layer || !layer.feature) return;
+      const showColor = colorToggle.checked;
+      const showBorder = borderToggle.checked;
+      const desiredFillOpacity = showColor ? parseFloat(opacityEl.value || 0.5) : 0;
+      const desiredStrokeOpacity = showBorder ? 0.95 : 0;
+      const name = layer.feature && (layer.feature.properties && (layer.feature.properties.Dist_Name || layer.feature.properties.DIST_NAME || layer.feature.properties.name)) || null;
+      const fillColor = showColor ? getColorByName(name) : 'transparent';
+      const strokeColor = showBorder ? BASE_BORDER_COLOR : 'transparent';
+      const weight = showBorder ? BASE_BORDER_WEIGHT : 0;
+
+      if(layer.setStyle) layer.setStyle({ fillColor, fillOpacity: desiredFillOpacity, color: strokeColor, opacity: desiredStrokeOpacity, weight });
+      const el = layer.getElement && layer.getElement();
+      if(el){
+        try{ el.setAttribute('fill', fillColor); }catch(e){}
+        try{ el.setAttribute('fill-opacity', String(desiredFillOpacity)); }catch(e){}
+        try{ el.setAttribute('stroke-opacity', String(desiredStrokeOpacity)); }catch(e){}
+        try{ el.setAttribute('stroke-width', weight + 'px'); }catch(e){}
+        if(!showBorder) try{ el.setAttribute('stroke', 'transparent'); }catch(e){}
+        else try{ el.setAttribute('stroke', BASE_BORDER_COLOR); }catch(e){}
+        try{ el.setAttribute('tabindex','-1'); el.setAttribute('focusable','false'); el.style.outline='none'; el.style.boxShadow='none'; }catch(e){}
+      }
+    }
+
+    function updateAllLayersDisplay(){
+      geoLayer.eachLayer(l => updateLayerDisplay(l));
+    }
+
+    colorToggle.addEventListener('change', ()=>{ document.getElementById('legendItems').style.display = colorToggle.checked ? 'block' : 'none'; updateAllLayersDisplay(); if(map.hasLayer(geoLayer)) geoLayer.bringToFront(); });
+    borderToggle.addEventListener('change', ()=>{ updateAllLayersDisplay(); if(map.hasLayer(geoLayer)) geoLayer.bringToFront(); });
+    opacityEl.addEventListener('input', ()=> geoLayer.eachLayer(l=> { l.options = l.options || {}; l.options.fillOpacity = parseFloat(opacityEl.value); updateLayerDisplay(l); }));
+
+    // roadsToggle listener will be attached later after Overpass code
+    locationsToggle.addEventListener('change', ()=>{
+      if(locationsToggle.checked) { createLocationsLayer().addTo(map); }
+      else if(locationsLayer) map.removeLayer(locationsLayer);
+      if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW: keep cities on top
+    });
+
+    citiesToggle.addEventListener('change', ()=>{
+      if(citiesToggle.checked) { createCitiesLayer().addTo(map); citiesLayer.bringToFront(); } // NEW: bringToFront
+      else if(citiesLayer) map.removeLayer(citiesLayer);
+    });
+
+    /***********************
+     *  Bounds, legend, search, misc
+     ***********************/
     const bounds = geoLayer.getBounds();
     if(bounds.isValid()){
       map.fitBounds(bounds, {padding:[20,20]});
@@ -343,77 +374,105 @@
       map.setView([27.5,88.5], 8);
     }
 
-    // legend build
     const legendEl = document.getElementById('legendItems');
     Object.keys(districtColors).forEach(k=>{
-      const div = document.createElement('div');
-      div.className='legend-item';
-      div.innerHTML = `<div class="swatch glow" style="background:${districtColors[k]}"></div><div style="font-size:13px;color:var(--text)">${k}</div>`;
-      legendEl.appendChild(div);
+      const div = document.createElement('div'); div.className='legend-item'; div.innerHTML = `<div class="swatch" style="background:${districtColors[k]}"></div><div style="font-size:13px;color:var(--text)">${k}</div>`; legendEl.appendChild(div);
     });
 
-    // opacity slider
-    const opacityEl = document.getElementById('opacity');
-    opacityEl.addEventListener('input', ()=>{ const v = parseFloat(opacityEl.value); geoLayer.eachLayer(l=>{ l.setStyle({fillOpacity:v}); }); });
-
-    // basemap selector + overlay
     const basemapSelect = document.getElementById('basemapSelect');
-    basemapSelect.addEventListener('change', ()=>{ const val = basemapSelect.value; [osm,satellite,gray].forEach(t=>map.removeLayer(t)); if(val==='osm') osm.addTo(map); else if(val==='sat') satellite.addTo(map); else gray.addTo(map); updateOverlayVisibility(); });
-    const osmOverlayToggle = document.getElementById('osmOverlayToggle');
-    osmOverlayToggle.addEventListener('change', updateOverlayVisibility);
-    function updateOverlayVisibility(){
-      const wantOverlay = osmOverlayToggle.checked && basemapSelect.value === 'sat';
-      if(wantOverlay){ if(!map.hasLayer(osmOverlay)){ osmOverlay.addTo(map); osmOverlay.setOpacity(0.65); } }
-      else { if(map.hasLayer(osmOverlay)){ map.removeLayer(osmOverlay); } }
+    basemapSelect.addEventListener('change', ()=>{
+      const val = basemapSelect.value;
+      [osm, satellite, gray].forEach(layer => { if(map.hasLayer(layer)) map.removeLayer(layer); });
+      if(val === 'osm') osm.addTo(map);
+      else if(val === 'sat') satellite.addTo(map);
+      else gray.addTo(map);
+
+      if(typeof roadsLayer !== 'undefined' && roadsLayer && map.hasLayer(roadsLayer)) roadsLayer.bringToFront();
+      if(typeof locationsLayer !== 'undefined' && locationsLayer && map.hasLayer(locationsLayer)) locationsLayer.bringToFront();
+      if(typeof citiesLayer !== 'undefined' && citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW
+      if(map.hasLayer(geoLayer)) geoLayer.bringToFront();
+
+      updateOverlayVisibility();
+    });
+
+    function updateOverlayVisibility(){ 
+      if(map.hasLayer(osmOverlay) && basemapSelect.value !== 'sat'){ map.removeLayer(osmOverlay); }
     }
 
-    // zoom to all
     document.getElementById('zoomToAll').addEventListener('click', ()=>{ if(bounds.isValid()) map.flyToBounds(bounds, {padding:[30,30], duration: 1.2}); });
-
-    // Street view
     document.getElementById('streetView').addEventListener('click', ()=>{ const c = bounds.getCenter(); const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c.lat},${c.lng}`; window.open(url,'_blank'); });
 
-    // search / geocoding (Nominatim)
-    const searchInput = document.getElementById('searchInput');
+    /***********************
+     *  SIKKIM-ONLY GEOCODING (Nominatim)
+     ***********************/
     const searchBtn = document.getElementById('searchBtn');
+    const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
     const searchLayer = L.layerGroup().addTo(map);
 
+    // Sikkim approximate bounding box (minLon, minLat, maxLon, maxLat)
+    const SIKKIM_BBOX = {
+      minLon: 87.8,
+      minLat: 26.8,
+      maxLon: 88.95,
+      maxLat: 28.2
+    };
+
     async function geocode(q){
-      if(!q || !q.trim()) return [];
-      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`;
+      if(!q||!q.trim()) return [];
+      const vb = `${SIKKIM_BBOX.minLon},${SIKKIM_BBOX.minLat},${SIKKIM_BBOX.maxLon},${SIKKIM_BBOX.maxLat}`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=10&viewbox=${vb}&bounded=1&countrycodes=in&q=${encodeURIComponent(q)}`;
       try{
-        const res = await fetch(url, {headers:{'Accept':'application/json'}});
+        const res = await fetch(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'SikkimGeoJSON/1.0 (your-email@example.com)' }});
         if(!res.ok) return [];
         const data = await res.json();
-        return data;
-      }catch(err){ console.error(err); return []; }
+        return data || [];
+      }catch(e){
+        console.warn('geocode error', e);
+        return [];
+      }
     }
 
-    function clearResults(){ searchResults.innerHTML=''; searchResults.style.display='none'; searchResults.classList.remove('show'); }
-
+    function clearResults(){ searchResults.innerHTML=''; searchResults.style.display='none'; }
     function showResults(list){
       searchResults.innerHTML='';
-      if(!list || !list.length){ clearResults(); return; }
-      list.forEach(item=>{
+
+      const filtered = (list || []).filter(item=>{
+        if(!item) return false;
+        if(item.address && (item.address.state === 'Sikkim' || (item.address.state && item.address.state.toLowerCase().includes('sikkim')))) return true;
+        if(item.display_name && item.display_name.toLowerCase().includes('sikkim')) return true;
+        return false;
+      });
+
+      if(!filtered.length){
+        searchResults.innerHTML = `<div style="padding:8px;color:var(--muted)">No results found inside <strong>Sikkim</strong>. Try a different query.</div>`;
+        searchResults.style.display='block';
+        return;
+      }
+
+      filtered.forEach(item=>{
         const div = document.createElement('div');
-        div.className='search-result';
-        div.innerHTML = `<strong style="color:var(--text)">${item.display_name}</strong><br><small style="color:var(--muted)">${item.type} • ${item.class}</small>`;
+        div.style.padding='8px';
+        div.style.borderBottom='1px solid rgba(255,255,255,0.03)';
+        const shortName = (item.display_name || '').replace(/,?\s*India.*$/i, '');
+        div.innerHTML = `<strong style="color:var(--text)">${shortName}</strong><br><small style="color:var(--muted)">${item.type} • ${item.class}</small>`;
         div.addEventListener('click', ()=> selectResult(item));
         searchResults.appendChild(div);
       });
       searchResults.style.display='block';
-      requestAnimationFrame(()=> searchResults.classList.add('show'));
     }
 
-    function selectResult(item){
+    async function selectResult(item){
       clearResults();
       searchInput.value = item.display_name || '';
       searchLayer.clearLayers();
+
+      if(!(item.address && (item.address.state === 'Sikkim' || (item.address.state && item.address.state.toLowerCase().includes('sikkim'))) || (item.display_name && item.display_name.toLowerCase().includes('sikkim')))){
+        alert('That place does not appear to be inside Sikkim.');
+        return;
+      }
+
       const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
-      const hadMaxBounds = !!map.options.maxBounds;
-      const prevMaxBounds = map.options.maxBounds || null;
-      try{ if(hadMaxBounds) map.setMaxBounds(null); }catch(e){}
       if(item.boundingbox && item.boundingbox.length===4){
         const b = item.boundingbox.map(v=>parseFloat(v));
         const south = Math.min(b[0], b[1]);
@@ -421,50 +480,211 @@
         const west  = Math.min(b[2], b[3]);
         const east  = Math.max(b[2], b[3]);
         const bb = L.latLngBounds([south, west],[north, east]);
-        if(Math.abs(north - south) < 0.0005 && Math.abs(east - west) < 0.0005){ map.setView([lat, lon], 15); } else { map.flyToBounds(bb, {padding:[30,30], duration: 0.9}); }
-      } else { map.flyTo([lat, lon], 15, {duration:0.9}); }
+        if(Math.abs(north - south) < 0.0005 && Math.abs(east - west) < 0.0005){
+          map.setView([lat, lon], 15);
+        } else {
+          map.flyToBounds(bb, {padding:[30,30], duration: 0.9});
+        }
+      } else {
+        map.flyTo([lat, lon], 15, {duration:0.9});
+      }
       const mk = L.marker([lat, lon]).addTo(searchLayer).bindPopup(`<strong>${item.display_name}</strong>`).openPopup();
-      setTimeout(()=>{ try{ if(mk._icon) mk._icon.classList.add('marker-bounce'); mk._icon.addEventListener('animationend', ()=> mk._icon.classList.remove('marker-bounce'), {once:true}); }catch(e){} }, 60);
-      setTimeout(()=>{ try{ if(hadMaxBounds) map.setMaxBounds(prevMaxBounds); }catch(e){} }, 700);
     }
 
-    searchBtn.addEventListener('click', async ()=>{ const q = searchInput.value; if(!q.trim()) return; searchResults.innerHTML = '<div class="search-result">Searching…</div>'; searchResults.style.display='block'; searchResults.classList.add('show'); const results = await geocode(q); showResults(results); });
-    searchInput.addEventListener('keydown', async (ev)=>{ if(ev.key==="Enter"){ ev.preventDefault(); searchBtn.click(); return; } });
-
-    let debounceTimer = null;
-    searchInput.addEventListener('input', ()=>{ clearTimeout(debounceTimer); const q = searchInput.value; if(!q || q.trim().length < 3){ clearResults(); return; } debounceTimer = setTimeout(async ()=>{ const results = await geocode(q); showResults(results); }, 450); });
-    document.addEventListener('click', (e)=>{ if(!e.target.closest('#searchResults') && !e.target.closest('#searchInput')) clearResults(); });
-
-    // popup overlap handling
-    function rectsIntersect(a, b){ return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom); }
-    map.on('popupopen', function(e){
-      const popupContainer = e.popup && e.popup._container;
-      if (!popupContainer) return;
-      const pRect = popupContainer.getBoundingClientRect();
-      const iRect = infoCard.getBoundingClientRect();
-      if (rectsIntersect(pRect, iRect)) { infoCard.classList.add('moved-left'); } else { infoCard.classList.remove('moved-left'); }
+    searchBtn.addEventListener('click', async ()=>{
+      const q = searchInput.value;
+      if(!q.trim()) return;
+      searchResults.innerHTML = '<div style="padding:8px">Searching…</div>';
+      searchResults.style.display='block';
+      const results = await geocode(q);
+      showResults(results);
     });
-    map.on('popupclose', function(){ infoCard.classList.remove('moved-left'); });
 
-    // ensure overlay rules run
-    updateOverlayVisibility();
+    searchInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') { e.preventDefault(); searchBtn.click(); }});
 
-    // ENHANCED ANIMATIONS
+    /***********************
+     *  REAL ROADS: Overpass -> GeoJSON (MAJOR / NATIONAL FILTERS)
+     *  - Fetches ways with filtered "highway" tags inside SIKKIM_BBOX
+     *  - Converts Overpass JSON to GeoJSON and styles by highway class
+     ***********************/
+    // (roadsPane already created above)
+    let roadsLayer1 = null;
+    let roadsFetched = false;
+
+    const roadsFilterSelect = document.getElementById('roadsFilterSelect');
+
+    // simple highway -> stroke weight heuristic
+    const highwayWeight = (hw) => {
+      if(!hw) return 2;
+      if(['motorway','trunk','primary'].includes(hw)) return 6;
+      if(['secondary','tertiary'].includes(hw)) return 4;
+      if(['residential','unclassified','service','living_street'].includes(hw)) return 2;
+      return 3;
+    };
+
+    // color by highway class
+    function roadStyleByFeature(feature){
+      const hw = feature.properties && (feature.properties.highway || '').toString();
+      let color = 'rgba(245,158,11,0.95)';
+      if(/motorway/.test(hw)) color = 'rgba(220,53,69,0.95)';       // motorway - red
+      else if(/trunk/.test(hw)) color = 'rgba(255,140,0,0.95)';    // trunk - orange
+      else if(/primary/.test(hw)) color = 'rgba(255,215,0,0.95)';  // primary - yellow
+      else if(/secondary/.test(hw)) color = 'rgba(200,200,200,0.95)'; // secondary - light
+      const weight = highwayWeight(hw);
+      return { color, weight, opacity: 0.95, lineCap: 'round' };
+    }
+
+    // Overpass -> GeoJSON converter (expects 'geometry' present on way elements)
+    function overpassToGeoJSON(overpassJson){
+      if(!overpassJson || !Array.isArray(overpassJson.elements)) return { type:'FeatureCollection', features:[] };
+      const wayElements = overpassJson.elements.filter(el => el.type === 'way' && Array.isArray(el.geometry) && el.geometry.length);
+      const features = wayElements.map(way => {
+        const coords = way.geometry.map(g => [g.lon, g.lat]);
+        return {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: coords },
+          properties: Object.assign({}, way.tags || {}, { osmid: way.id })
+        };
+      });
+      return { type:'FeatureCollection', features };
+    }
+
+    function createRoadsLayerFromGeoJSON(geojsonData){
+      if(roadsLayer1){
+        try{ map.removeLayer(roadsLayer1); }catch(e){}
+        roadsLayer1 = null;
+      }
+      roadsLayer1 = L.geoJSON(geojsonData, {
+        pane: 'roadsPane',
+        style: roadStyleByFeature,
+        onEachFeature(feature, layer){
+          const name = feature.properties && (feature.properties.name || '');
+          const hw = feature.properties && (feature.properties.highway || '');
+          if(name || hw) layer.bindPopup(`<strong>${name || '(unnamed)'}</strong><br><small>${hw}</small>`);
+        }
+      });
+
+      if(roadsToggle.checked && roadsLayer1 && !map.hasLayer(roadsLayer1)) roadsLayer1.addTo(map);
+      if(roadsLayer1 && map.hasLayer(roadsLayer1)) roadsLayer1.bringToFront();
+      if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW: keep cities on top
+    }
+
+    // Overpass endpoints fallback (in case one is slow)
+    const OVERPASS_ENDPOINTS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://lz4.overpass-api.de/api/interpreter'
+    ];
+
+    async function tryPostOverpass(endpoint, body){
+      const resp = await fetch(endpoint, { method:'POST', body, headers: { 'Content-Type': 'text/plain; charset=UTF-8', 'Accept': 'application/json' }});
+      if(!resp.ok) throw new Error(`Overpass ${endpoint} returned ${resp.status}`);
+      return await resp.json();
+    }
+
+    async function fetchOSMRoads(){
+      const south = SIKKIM_BBOX.minLat, west = SIKKIM_BBOX.minLon, north = SIKKIM_BBOX.maxLat, east = SIKKIM_BBOX.maxLon;
+      const bbox = `${south},${west},${north},${east}`;
+
+      const mode = (roadsFilterSelect && roadsFilterSelect.value) ? roadsFilterSelect.value : 'major';
+
+      let query = '';
+      if(mode === 'national'){
+        query = `
+[out:json][timeout:60];
+(
+  way["highway"]["ref"~"^NH"](${bbox});
+  way["highway"]["name"~"\\bNational Highway\\b", i](${bbox});
+);
+out geom;
+`;
+      } else {
+        query = `
+[out:json][timeout:60];
+(
+  way["highway"~"^(motorway|trunk|primary|secondary|tertiary|motorway_link|trunk_link|primary_link|secondary_link)$"](${bbox});
+);
+out geom;
+`;
+      }
+
+      if(searchResults){
+        searchResults.innerHTML = '<div style="padding:8px">Loading road network… (Overpass)</div>';
+        searchResults.style.display = 'block';
+      }
+
+      let lastError = null;
+      for(const ep of OVERPASS_ENDPOINTS){
+        try{
+          const data = await tryPostOverpass(ep, query);
+          const geo = overpassToGeoJSON(data);
+          if(!geo || !geo.features || geo.features.length === 0){
+            lastError = new Error('No way geometries returned (empty feature list)');
+            continue;
+          }
+          createRoadsLayerFromGeoJSON(geo);
+          roadsFetched = true;
+          if(searchResults) clearResults();
+          return;
+        }catch(err){
+          console.warn(`Overpass fetch failed at ${ep}:`, err);
+          lastError = err;
+        }
+      }
+
+      console.error('All Overpass endpoints failed', lastError);
+      if(searchResults){
+        searchResults.innerHTML = `<div style="padding:8px;color:var(--muted)">Could not load roads: ${lastError && lastError.message ? lastError.message : 'unknown'}. Try again later.</div>`;
+        searchResults.style.display = 'block';
+      } else {
+        alert('Could not load OSM roads. Check console for details.');
+      }
+    }
+
+    async function ensureRoadsVisible(){
+      if(roadsToggle.checked){
+        if(roadsFetched && roadsLayer1 && roadsFilterSelect && roadsFilterSelect._lastMode === roadsFilterSelect.value){
+          if(!map.hasLayer(roadsLayer1)) roadsLayer1.addTo(map);
+          roadsLayer1.bringToFront();
+          if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW
+          return;
+        }
+        await fetchOSMRoads();
+        if(roadsLayer1 && !map.hasLayer(roadsLayer1)) roadsLayer1.addTo(map);
+        if(roadsLayer1 && map.hasLayer(roadsLayer1)) roadsLayer1.bringToFront();
+        if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW
+        if(roadsFilterSelect) roadsFilterSelect._lastMode = roadsFilterSelect.value;
+      } else {
+        if(roadsLayer1 && map.hasLayer(roadsLayer1)) map.removeLayer(roadsLayer1);
+      }
+    }
+
+    roadsToggle.addEventListener('change', ensureRoadsVisible);
+    if(roadsFilterSelect) roadsFilterSelect.addEventListener('change', async ()=>{
+      if(roadsToggle.checked){
+        roadsFetched = false;
+        await ensureRoadsVisible();
+      }
+    });
+
+    /***********************
+     *  Small animations & accessibility
+     ***********************/
     function animateDistrictsStagger(){
-      let i = 0;
-      geoLayer.eachLayer(layer=>{
+      let i = 0; geoLayer.eachLayer(layer=>{
         try{
           const el = layer.getElement && layer.getElement();
-          if(!el) { i++; return; }
+          if(!el){ i++; return; }
           el.style.transition = 'transform 420ms cubic-bezier(.2,.9,.22,1), fill-opacity 420ms ease, stroke-width 260ms ease';
           el.style.transform = 'scale(.94)';
-          el.style.fillOpacity = 0;
+          const initialFill = (layer.options && layer.options.fillOpacity != null) ? layer.options.fillOpacity : (colorToggle.checked ? parseFloat(opacityEl.value || 0.5) : 0);
+          el.setAttribute('fill-opacity', '0');
           setTimeout(()=>{
-            const targetOpacity = layer.options && (layer.options.fillOpacity || 0.5);
+            const targetOpacity = initialFill;
             el.style.transform = 'scale(1)';
-            el.style.fillOpacity = targetOpacity;
-            el.style.strokeWidth = (layer.options && layer.options.weight) ? (layer.options.weight + 'px') : '2px';
-            el.animate([{ filter: 'brightness(1)' },{ filter: 'brightness(1.14)' },{ filter: 'brightness(1)' }], { duration: 700, easing:'ease-out' });
+            el.setAttribute('fill-opacity', String(targetOpacity));
+            if(layer.options && layer.options.weight) el.setAttribute('stroke-width', (layer.options.weight + 'px'));
+            try{ el.setAttribute('tabindex','-1'); el.setAttribute('focusable','false'); el.style.outline='none'; el.style.boxShadow='none'; }catch(e){}
           }, 140 + (i*90));
         }catch(e){}
         i++;
@@ -472,11 +692,8 @@
     }
     setTimeout(animateDistrictsStagger, 360);
 
-    // small style on hover
-    geoLayer.on('mouseover', function(e){ const el = e.layer.getElement && e.layer.getElement(); if(el) el.style.transform='scale(1.02)'; });
-    geoLayer.on('mouseout', function(e){ const el = e.layer.getElement && e.layer.getElement(); if(el) el.style.transform='scale(1)'; });
-
-    document.getElementById('map').setAttribute('tabindex', '0');
+    updateOverlayVisibility();
+    document.getElementById('map').setAttribute('tabindex','0');
   </script>
 </body>
 </html>
