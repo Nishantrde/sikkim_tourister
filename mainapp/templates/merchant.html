@@ -1,10 +1,9 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Sikkim — Interactive GeoJSON Map (Dark, Wide Borders) — Real Roads</title>
+  <title>Sikkim — Interactive GeoJSON Map (Dark, Wide Borders) — Real Roads (Full-image preview)</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -30,6 +29,7 @@
     .info{ position:absolute; left:28px; top:28px; z-index:1000; background: linear-gradient(180deg, rgba(3,6,23,0.86), rgba(4,7,35,0.80)); padding:12px 14px; border-radius:12px; color:var(--text); border:1px solid rgba(255,255,255,0.03); box-shadow: 0 10px 30px rgba(2,6,23,0.65); transition: left .22s ease, right .22s ease, transform .22s ease; max-width:360px; }
     .legend-item{ display:flex; gap:10px; align-items:center; font-size:13px; color:var(--text); }
     .swatch{ width:16px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 3px 10px rgba(2,6,23,0.35) inset; }
+
     .nice-popup .leaflet-popup-content-wrapper{ border-radius:10px; background: linear-gradient(180deg, #06102a, #071227); color:var(--text); padding:12px; border:2px solid rgba(11, 11, 11, 0.06); box-shadow: 0 10px 24px rgba(3,6,23,0.7); }
 
     /* Remove SVG focus box that appears on click */
@@ -43,7 +43,30 @@
     .small{ padding:6px 8px; border-radius:8px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.03); cursor:pointer; }
 
     /* Popup upload preview tweaks */
-    .marker-upload-preview img{ max-width:100%; border-radius:8px; display:block; margin-top:6px; }
+    .marker-upload-preview{ margin-top:6px; display:flex; flex-direction:column; gap:8px; }
+    .marker-upload-preview .thumb-row{ display:flex; gap:8px; flex-wrap:wrap; }
+    /* larger thumbnails and allow pointer to open full image */
+    .marker-upload-preview img{ width:160px; height:120px; object-fit:cover; border-radius:8px; display:block; border:1px solid rgba(255,255,255,0.06); cursor:pointer; }
+
+    /* Improve file input and popup styles to match dark theme */
+    .popup-input{ width:100%; padding:6px; margin-top:6px; border-radius:6px; background:var(--glass); border:1px solid rgba(255,255,255,0.04); color:var(--text); }
+    .popup-label{ margin-top:8px; display:block; color:var(--text); font-weight:700; }
+
+    /* LIGHTBOX for full-image preview */
+    #lightbox{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,0.85); z-index:9999; }
+    #lightbox.show{ display:flex; }
+    #lightbox img{ max-width:92vw; max-height:92vh; border-radius:8px; box-shadow:0 12px 40px rgba(0,0,0,0.7); }
+    #lightboxClose{ position:absolute; top:18px; right:18px; background:transparent; border:0; color:white; font-size:34px; line-height:1; cursor:pointer; padding:8px 12px; }
+
+    /* COLLAGE STYLES (for popup image preview) */
+    .collage{ display:grid; gap:8px; }
+    .collage img{ width:100%; height:100%; object-fit:cover; border-radius:8px; cursor:pointer; display:block; }
+    .collage.count-1{ grid-template-columns: 1fr; }
+    .collage.count-2{ grid-template-columns: 1fr 1fr; }
+    .collage.count-3{ grid-template-columns: 2fr 1fr; grid-auto-rows: 1fr; }
+    .collage.count-3 img:first-child{ grid-row: 1 / span 2; }
+    @media (max-width:420px){ .collage.count-3{ grid-template-columns: 1fr; } .collage.count-2{ grid-template-columns: 1fr; } }
+
   </style>
 </head>
 <body>
@@ -112,6 +135,12 @@
       <div id="map" role="application" aria-label="Map"></div>
       <div class="info" id="infoCard"><div style="display:flex;gap:10px;align-items:center"><img src="https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png" style="width:64px;height:64px;object-fit:contain;border-radius:8px"><div><h3 style="margin:0;color:var(--sikkim-yellow)">Hover over a district</h3><p id="infoText" style="margin:0;color:var(--muted)">District name, code and other properties appear here.</p></div></div></div>
     </main>
+  </div>
+
+  <!-- LIGHTBOX DOM -->
+  <div id="lightbox" aria-hidden="true">
+    <button id="lightboxClose" aria-label="Close preview">×</button>
+    <img id="lightboxImg" src="" alt="Full preview">
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -488,16 +517,12 @@
 
     /***********************
      *  REAL ROADS: Overpass -> GeoJSON (MAJOR / NATIONAL FILTERS)
-     *  - Fetches ways with filtered "highway" tags inside SIKKIM_BBOX
-     *  - Converts Overpass JSON to GeoJSON and styles by highway class
      ***********************/
-    // (roadsPane already created above)
     let roadsLayer1 = null;
     let roadsFetched = false;
 
     const roadsFilterSelect = document.getElementById('roadsFilterSelect');
 
-    // simple highway -> stroke weight heuristic
     const highwayWeight = (hw) => {
       if(!hw) return 2;
       if(['motorway','trunk','primary'].includes(hw)) return 6;
@@ -506,19 +531,17 @@
       return 3;
     };
 
-    // color by highway class
     function roadStyleByFeature(feature){
       const hw = feature.properties && (feature.properties.highway || '').toString();
       let color = 'rgba(245,158,11,0.95)';
-      if(/motorway/.test(hw)) color = 'rgba(220,53,69,0.95)';       // motorway - red
-      else if(/trunk/.test(hw)) color = 'rgba(255,140,0,0.95)';    // trunk - orange
-      else if(/primary/.test(hw)) color = 'rgba(255,215,0,0.95)';  // primary - yellow
-      else if(/secondary/.test(hw)) color = 'rgba(200,200,200,0.95)'; // secondary - light
+      if(/motorway/.test(hw)) color = 'rgba(220,53,69,0.95)';
+      else if(/trunk/.test(hw)) color = 'rgba(255,140,0,0.95)';
+      else if(/primary/.test(hw)) color = 'rgba(255,215,0,0.95)';
+      else if(/secondary/.test(hw)) color = 'rgba(200,200,200,0.95)';
       const weight = highwayWeight(hw);
       return { color, weight, opacity: 0.95, lineCap: 'round' };
     }
 
-    // Overpass -> GeoJSON converter (expects 'geometry' present on way elements)
     function overpassToGeoJSON(overpassJson){
       if(!overpassJson || !Array.isArray(overpassJson.elements)) return { type:'FeatureCollection', features:[] };
       const wayElements = overpassJson.elements.filter(el => el.type === 'way' && Array.isArray(el.geometry) && el.geometry.length);
@@ -550,10 +573,9 @@
 
       if(roadsToggle.checked && roadsLayer1 && !map.hasLayer(roadsLayer1)) roadsLayer1.addTo(map);
       if(roadsLayer1 && map.hasLayer(roadsLayer1)) roadsLayer1.bringToFront();
-      if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW: keep cities on top
+      if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront();
     }
 
-    // Overpass endpoints fallback (in case one is slow)
     const OVERPASS_ENDPOINTS = [
       'https://overpass-api.de/api/interpreter',
       'https://overpass.kumi.systems/api/interpreter',
@@ -652,15 +674,8 @@ out geom;
     });
 
     /***********************
-     *  MARK LOCATION: new functionality
-     *  - "Mark location" toggle enables clicking on the map to add a marker
-     *  - Prompt for a short note, show it in the popup, and console.log the lat/lng + note
-     *  - Markers are draggable; on dragend we log the new position
-     *  - "Clear markers" button removes all markers
-     *
-     *  EXTENDED: clicking the marker popup allows uploading a picture and adding a title.
-     *  - Images are read client-side (data URL) and stored on the marker object (marker._meta)
-     *  - This is client-only; if you want server upload, replace the client reader with a fetch/XHR to your endpoint.
+     *  MARK LOCATION: multiple-image upload (up to 3 images)
+     *  — now with full-image preview (lightbox) and clickable thumbnails
      ***********************/
     const markToggle = document.getElementById('markToggle');
     const clearMarkersBtn = document.getElementById('clearMarkers');
@@ -678,25 +693,43 @@ out geom;
         .replace(/'/g, '&#039;');
     }
 
+    // LIGHTBOX helpers (global so popup images can call window.openLightbox)
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxClose = document.getElementById('lightboxClose');
+    function openLightbox(src){
+      if(!src) return;
+      lightboxImg.src = src;
+      lightbox.classList.add('show');
+      lightbox.setAttribute('aria-hidden', 'false');
+    }
+    function closeLightbox(){
+      lightbox.classList.remove('show');
+      lightbox.setAttribute('aria-hidden', 'true');
+      // revoke large image src from memory if needed (only dataURLs here)
+      try{ lightboxImg.src = ''; }catch(e){}
+    }
+    lightboxClose.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (ev)=>{ if(ev.target === lightbox) closeLightbox(); });
+
     function onMapClickForMarking(e){
-      // Prompt for a short note (can be empty)
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
 
       const id = 'm' + Date.now() + Math.floor(Math.random()*999);
 
-      // Build a popup that includes a title field and file input for images
+      // Build a popup that includes a title field and file input for up to 3 images
       const popupHtml = `
-        <div id="${id}-popup" style="min-width:220px;font-size:13px;color:var(--text)">
-                      <label style="margin-top:8px;display:block;color:#000000;font-weight:700">Title</label>
-
-          <input id="${id}-title" type="text" placeholder="Short title" style="width:100%;padding:6px;margin-top:6px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:black">
+        <div id="${id}-popup" style="min-width:260px;font-size:13px;color:var(--text)">
+                      <label class="popup-label" style="color:black"  >Title</label>
+          <input id="${id}-title" style="color:black"  type="text" placeholder="Short title" class="popup-input">
         
-          <label style="margin-top:8px;display:block;color:#000000;font-weight:700">Photo</label>
-          <input id="${id}-file" type="file" accept="image/*" style="width:100%;margin-top:6px">
+          <label class="popup-label" style="color:black" >Photos (up to 3)</label>
+          <input id="${id}-file" type="file" accept="image/*" multiple class="popup-input">
 
-          <div id="${id}-preview" class="marker-upload-preview" style="margin-top:8px;display:none">
-            <img id="${id}-img" src="" alt="preview">
+          <div id="${id}-preview" class="marker-upload-preview" style="display:none">
+            <!-- thumbnails will be injected here -->
+            <div class="thumb-row" id="${id}-thumbs"></div>
           </div>
 
           <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
@@ -710,71 +743,207 @@ out geom;
       marker.bindPopup(popupHtml).openPopup();
 
       // store marker + meta placeholder
-      markersList.push({ marker, meta: { title: '', image: null, lat, lng } });
+      markersList.push({ marker, meta: { title: '', images: [], lat, lng } });
 
-      // console log the position (initial) — image/title will be added when saved
       console.log('Marker added (pending):', { lat, lng });
 
-      // on dragend, report new coords and update stored meta
       marker.on('dragend', function(){
         const p = marker.getLatLng();
         const entry = markersList.find(it => it.marker === marker);
         if(entry) { entry.meta.lat = p.lat; entry.meta.lng = p.lng; }
         console.log('Marker moved:', { lat: p.lat, lng: p.lng, meta: entry ? entry.meta : null });
-        // if popup currently shows coords, update
-        try{
-          if(marker.getPopup && marker.getPopup().isOpen()){
-            const content = marker.getPopup().getContent();
-            // no-op — we rely on "save" to update final popup
-          }
-        }catch(e){}
       });
 
-      // When popup opens, wire up file input and save button
-      marker.on('popupopen', function(){
+      marker.on('popupopen', function onPopupOpen(){
         const fileEl = document.getElementById(`${id}-file`);
         const titleEl = document.getElementById(`${id}-title`);
         const previewWrap = document.getElementById(`${id}-preview`);
-        const imgEl = document.getElementById(`${id}-img`);
+        const thumbsRow = document.getElementById(`${id}-thumbs`);
         const saveBtn = document.getElementById(`${id}-save`);
         const cancelBtn = document.getElementById(`${id}-cancel`);
-        let dataUrl = null;
+        if(!fileEl || !titleEl || !saveBtn || !cancelBtn) return;
 
-        function handleFileChange(evt){
-          const f = (evt.target && evt.target.files && evt.target.files[0]) || null;
-          if(!f) { previewWrap.style.display = 'none'; dataUrl = null; imgEl.src = ''; return; }
-          const reader = new FileReader();
-          reader.onload = function(r){ dataUrl = r.target.result; imgEl.src = dataUrl; previewWrap.style.display = 'block'; };
-          reader.readAsDataURL(f);
+        // Config
+        const MAX_FILES = 3;
+        const MAX_BYTES = 2 * 1024 * 1024; // 2 MB per image
+        const MAX_DIMENSION = 1200; // max width/height for resized image
+
+        let imagesData = []; // array of dataURLs
+        let objectUrls = []; // keep track to revoke
+        let _readers = [];
+        let _listeners = [];
+
+        function setError(msg){
+          let errEl = document.getElementById(`${id}-error`);
+          if(!errEl){
+            errEl = document.createElement('div');
+            errEl.id = `${id}-error`;
+            errEl.style.color = '#ffb4b4';
+            errEl.style.fontSize = '12px';
+            errEl.style.marginTop = '6px';
+            previewWrap.parentNode.insertBefore(errEl, previewWrap.nextSibling);
+          }
+          errEl.textContent = msg || '';
+        }
+        function clearError(){ const errEl = document.getElementById(`${id}-error`); if(errEl) errEl.textContent=''; }
+
+        function setLoading(yes){ if(yes){ saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; } else { saveBtn.textContent = 'Save'; saveBtn.disabled = false; } }
+
+        function resizeImageIfNeeded(img, mimeType, maxDim){
+          return new Promise((resolve, reject) => {
+            const w = img.width, h = img.height;
+            let nw = w, nh = h;
+            if(Math.max(w, h) > maxDim){
+              if(w >= h){ nw = maxDim; nh = Math.round(h * (maxDim / w)); } else { nh = maxDim; nw = Math.round(w * (maxDim / h)); }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = nw; canvas.height = nh;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, nw, nh);
+            resolve(canvas.toDataURL(mimeType || 'image/jpeg', 0.85));
+          });
         }
 
-        if(fileEl) fileEl.addEventListener('change', handleFileChange);
+        async function finalizeWithImage(imgSrc, mimeType){
+          // returns dataUrl or throws
+          const tmp = new Image();
+          tmp.src = imgSrc;
+          if(tmp.decode){
+            await tmp.decode();
+          } else {
+            await new Promise((res, rej)=>{ tmp.onload = res; tmp.onerror = ()=> rej(new Error('decode failed')); });
+          }
+          const resized = await resizeImageIfNeeded(tmp, mimeType || 'image/jpeg', MAX_DIMENSION);
+          return resized || imgSrc;
+        }
 
-        if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ marker.closePopup(); });
+        function clearThumbs(){ if(thumbsRow) thumbsRow.innerHTML = ''; }
 
-        if(saveBtn) saveBtn.addEventListener('click', ()=>{
-          const title = (titleEl && titleEl.value) ? titleEl.value.trim() : '';
-          // store meta on marker and in list
-          const entry = markersList.find(it => it.marker === marker);
-          if(entry){ entry.meta.title = title; entry.meta.image = dataUrl; entry.meta.lat = marker.getLatLng().lat; entry.meta.lng = marker.getLatLng().lng; }
+        async function handleFiles(filesList){
+          clearError();
+          imagesData = [];
+          objectUrls.forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(e){} });
+          objectUrls = [];
+          clearThumbs();
 
-          // Create final popup content showing title, image (if any) and coords
-          const safeTitle = escapeHtml(title) || '<em>No title</em>';
-          let finalHtml = `<div style="font-size:13px;color:var(--text);min-width:180px"><strong style="color: black;">${safeTitle}</strong><br><small>${marker.getLatLng().lat.toFixed(6)}, ${marker.getLatLng().lng.toFixed(6)}</small>`;
-          if(dataUrl){ finalHtml += `<div style="margin-top:8px"><img src="${dataUrl}" style="max-width:200px;border-radius:8px"></div>`; }
-          finalHtml += `</div>`;
+          if(!filesList || filesList.length === 0){ previewWrap.style.display='none'; return; }
 
-          marker.setPopupContent(finalHtml);
-          marker.closePopup();
+          const files = Array.from(filesList).slice(0, MAX_FILES);
+          if(filesList.length > MAX_FILES) setError('Only the first 3 images will be used.');
 
-          // Keep metadata on marker for future use
-          marker._meta = entry ? entry.meta : { title, image: dataUrl, lat: marker.getLatLng().lat, lng: marker.getLatLng().lng };
+          previewWrap.style.display = 'flex';
 
-          console.log('Marker saved:', marker._meta);
+          // process each file; show thumb as soon as available
+          await Promise.all(files.map(async (f, idx) => {
+            if(!f.type || !f.type.startsWith('image/')){
+              setError('One of the files is not an image. Skipping.');
+              return;
+            }
+            const objectUrl = URL.createObjectURL(f);
+            objectUrls.push(objectUrl);
+            try{
+              const dataURL = await finalizeWithImage(objectUrl, f.type);
+              imagesData.push(dataURL);
+
+              // ensure the popup still exists before manipulating DOM
+              const realThumbsRow = document.getElementById(`${id}-thumbs`);
+              if(realThumbsRow){
+                const img = document.createElement('img');
+                img.src = dataURL;
+                img.alt = `preview-${idx+1}`;
+                img.addEventListener('click', ()=> openLightbox(dataURL)); // open full image
+                realThumbsRow.appendChild(img);
+              }
+            }catch(err){
+              console.warn('Image processing failed for a file, trying FileReader fallback', err);
+              // fallback: read as data URL
+              try{
+                const resultDataUrl = await new Promise((resolve, reject) => {
+                  const fr = new FileReader();
+                  fr.onerror = () => reject(new Error('FileReader failed'));
+                  fr.onload = e => resolve(e.target.result);
+                  fr.readAsDataURL(f);
+                });
+                const tmp = new Image(); tmp.src = resultDataUrl;
+                if(tmp.decode) await tmp.decode(); else await new Promise((res, rej)=>{ tmp.onload = res; tmp.onerror = rej; });
+                const resized = await resizeImageIfNeeded(tmp, f.type || 'image/jpeg', MAX_DIMENSION);
+                imagesData.push(resized || resultDataUrl);
+                const realThumbsRow = document.getElementById(`${id}-thumbs`);
+                if(realThumbsRow){ const img = document.createElement('img'); img.src = resized || resultDataUrl; img.addEventListener('click', ()=> openLightbox(resized || resultDataUrl)); realThumbsRow.appendChild(img); }
+              }catch(fbErr){
+                console.error('Fallback also failed for file', fbErr);
+                setError('Some images could not be processed. Try smaller files or different formats.');
+              }
+            }
+          }));
+
+          // done processing
+          setLoading(false);
+        }
+
+        function handleFileChange(evt){
+          setLoading(true);
+          handleFiles(evt.target.files).finally(()=> setLoading(false));
+        }
+
+        function handleSaveClick(){
+          setError('');
+          setLoading(true);
+          setTimeout(()=>{
+            const title = (titleEl && titleEl.value) ? titleEl.value.trim() : '';
+            const entry = markersList.find(it => it.marker === marker);
+            if(entry){
+              entry.meta.title = title;
+              entry.meta.images = imagesData.slice();
+              entry.meta.lat = marker.getLatLng().lat;
+              entry.meta.lng = marker.getLatLng().lng;
+            }
+            const safeTitle = escapeHtml(title) || '<em>No title</em>';
+            let finalHtml = `<div style="font-size:13px;color:var(--text);min-width:220px"><strong style="color:black">${safeTitle}</strong><br><small>${marker.getLatLng().lat.toFixed(6)}, ${marker.getLatLng().lng.toFixed(6)}</small>`;
+            if(entry && entry.meta.images && entry.meta.images.length){
+              // COLLAGE: create a responsive grid collage depending on number of images (1 / 2 / 3)
+              finalHtml += `<div style="margin-top:8px"><div class="collage count-${entry.meta.images.length}">`;
+              entry.meta.images.forEach((src, idx) => {
+                finalHtml += `<img src="${src}" alt="img${idx+1}" onclick="window.openLightbox(${JSON.stringify(src)})">`;
+              });
+              finalHtml += `</div></div>`;
+            }
+            finalHtml += `</div>`;
+            marker.setPopupContent(finalHtml);
+            marker._meta = entry ? entry.meta : { title, images: imagesData, lat: marker.getLatLng().lat, lng: marker.getLatLng().lng };
+            setLoading(false);
+            console.log('Marker saved:', marker._meta);
+            marker.closePopup();
+          }, 150);
+        }
+
+        function handleCancel(){ marker.closePopup(); }
+
+        // add listeners and keep references for cleanup
+        fileEl.addEventListener('change', handleFileChange); _listeners.push(['change', fileEl, handleFileChange]);
+        saveBtn.addEventListener('click', handleSaveClick); _listeners.push(['click', saveBtn, handleSaveClick]);
+        cancelBtn.addEventListener('click', handleCancel); _listeners.push(['click', cancelBtn, handleCancel]);
+
+        // cleanup when popup closes
+        marker.once('popupclose', function cleanupPopup(){
+          // revoke object URLs
+          objectUrls.forEach(u=>{ try{ URL.revokeObjectURL(u); }catch(e){} });
+          objectUrls = [];
+          // abort readers if any (none kept now) -- for safety
+          try{ _readers.forEach(r=>{ if(r && r.readyState === 1) r.abort(); }); }catch(e){}
+          // remove listeners
+          _listeners.forEach(([ev, el, fn]) => { try{ el.removeEventListener(ev, fn); }catch(e){} });
+          _listeners.length = 0;
+          // hide preview / clear data
+          if(previewWrap){ previewWrap.style.display = 'none'; }
+          imagesData = [];
+          clearThumbs();
+          clearError();
+          setLoading(false);
         });
+
       });
 
-      // after adding first marker, ensure markersGroup is on top of roads
       if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront();
     }
 
@@ -796,17 +965,10 @@ out geom;
       markToggle.classList.remove('active');
     }
 
-    markToggle.addEventListener('click', ()=>{
-      if(markMode) disableMarkMode(); else enableMarkMode();
-    });
+    markToggle.addEventListener('click', ()=>{ if(markMode) disableMarkMode(); else enableMarkMode(); });
 
-    clearMarkersBtn.addEventListener('click', ()=>{
-      markersGroup.clearLayers();
-      markersList.length = 0;
-      console.log('All markers cleared');
-    });
+    clearMarkersBtn.addEventListener('click', ()=>{ markersGroup.clearLayers(); markersList.length = 0; console.log('All markers cleared'); });
 
-    // allow toggling mark mode with the Escape key to quickly exit
     document.addEventListener('keydown', (ev)=>{ if(ev.key === 'Escape' && markMode) disableMarkMode(); });
 
     /***********************
@@ -836,6 +998,10 @@ out geom;
 
     updateOverlayVisibility();
     document.getElementById('map').setAttribute('tabindex','0');
+
+    // expose lightbox helper to popup inline handlers
+    window.openLightbox = openLightbox;
+    window.closeLightbox = closeLightbox;
   </script>
 </body>
 </html>
