@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Discover Sikkim — Sacred Monasteries & Festivals (Blue/Yellow/Red)</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700;800&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+  <style>
+    :root{
+      --bg: rgb(243,248,255);
+      --deep-blue: rgb(11,87,164);     /* rgb(11,87,164) */
+      --mid-blue: rgb(43,138,214);
+      --accent-yellow: rgb(255,210,74);/* rgb(255,210,74) */
+      --accent-red: rgb(226,59,59);    /* rgb(226,59,59) */
+      --card: rgba(255,255,255,0.98);
+      --muted: rgba(247,249,255,1);
+      --shadow: 0 20px 50px rgba(6,18,40,0.08);
+    }
+
+    /* animations */
+    @keyframes headerShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes pulse { 0%{ transform: scale(1); opacity:1 } 50%{ transform:scale(1.12); opacity:.88 } 100%{ transform:scale(1); opacity:1 } }
+    @keyframes bounce { 0%{ transform: translateY(0) } 30%{ transform: translateY(-12px) } 60%{ transform:translateY(4px) } 100%{ transform:translateY(0) } }
+    @keyframes fadeInUp { 0%{ opacity:0; transform: translateY(8px);} 100%{ opacity:1; transform:translateY(0);} }
+    @keyframes slideIn { 0%{ opacity:0; transform: translateX(12px);} 100%{ opacity:1; transform:translateX(0);} }
+    @keyframes badgePulse { 0%{ transform: scale(1)} 50%{ transform: scale(1.08)} 100%{ transform:scale(1)} }
+
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Nunito,system-ui,Arial;background:linear-gradient(180deg,var(--bg),#f8fbff);color:#072117; -webkit-font-smoothing:antialiased}
+    header{
+      background:linear-gradient(90deg,var(--deep-blue),var(--mid-blue));
+      color:white;padding:1rem 1.6rem;position:sticky;top:0;z-index:40;
+      background-size:200% 200%;
+      animation: headerShift 10s linear infinite;
+      box-shadow: 0 6px 18px rgba(6,12,40,0.08);
+    }
+    .wrap{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:1rem}
+
+    /* Logo container — now contains only the image */
+    .logo{
+      width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--accent-yellow),#fff);
+      display:flex;align-items:center;justify-content:center; position:relative; overflow:hidden;
+      box-shadow:0 6px 18px rgba(6,12,40,0.08);
+    }
+    .logo img{width:56px;height:56px;object-fit:cover;border-radius:10px;display:block}
+
+    nav{margin-left:auto}
+    nav a{color:white;text-decoration:none;margin-left:12px;font-weight:700;opacity:0.95}
+
+    .hero{max-width:1200px;margin:1.4rem auto;padding:1.2rem;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.95),rgba(255,255,255,0.98));box-shadow:var(--shadow);display:grid;grid-template-columns:1fr 420px;gap:1rem;animation:fadeInUp .6s ease both}
+    .hero h1{font-family:'Playfair Display',serif;margin:0;font-size:2rem;color:var(--deep-blue)}
+    .hero p{margin-top:0.6rem;opacity:0.9}
+    .cta{margin-top:1rem;display:flex;gap:0.6rem}
+    .btn-primary{background:linear-gradient(90deg,var(--mid-blue),var(--deep-blue));color:white;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(11,87,164,0.12);transition:transform .18s}
+    .btn-primary:hover{transform:translateY(-3px)}
+    .btn-ghost{background:transparent;border:1px solid rgba(6,20,14,0.06);padding:8px 12px;border-radius:10px}
+
+    .map-card{border-radius:12px;overflow:hidden;height:420px;box-shadow:0 10px 30px rgba(11,87,164,0.06)}
+    #map{width:100%;height:100%}
+
+    main.content{max-width:1200px;margin:1rem auto;padding:0 1rem}
+    .grid{display:grid;grid-template-columns:380px 1fr;gap:1rem}
+
+    .panel-card{background:var(--card);border-radius:12px;padding:0.8rem;box-shadow:var(--shadow)}
+    .search{display:flex;gap:0.6rem}
+    .search input{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(6,20,14,0.06)}
+    .chips{display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.8rem}
+    .chip{padding:6px 10px;border-radius:999px;background:var(--muted);cursor:pointer;border:1px solid rgba(6,20,14,0.04);font-weight:700;transition:transform .15s, box-shadow .15s}
+    .chip:hover{transform:translateY(-3px); box-shadow:0 8px 18px rgba(11,87,164,0.06)}
+    .chip.active{background:linear-gradient(90deg,var(--mid-blue),var(--deep-blue));color:white; animation:slideIn .28s both}
+
+    .list{margin-top:0.8rem;max-height:60vh;overflow:auto}
+    .list .item{display:flex;gap:0.6rem;padding:0.6rem;border-radius:8px;align-items:center;cursor:pointer;transition:background .18s, transform .12s; animation:fadeInUp .45s ease both}
+    .list .item:hover{transform:translateX(6px); background:linear-gradient(90deg,rgba(43,138,214,0.03),rgba(11,87,164,0.02))}
+    .thumb{width:84px;height:64px;border-radius:8px;object-fit:cover}
+
+    .details{display:grid;grid-template-rows:auto 1fr;gap:0.8rem}
+    .card-big{background:var(--card);border-radius:12px;padding:0.8rem;box-shadow:var(--shadow)}
+    .gallery{display:flex;gap:0.5rem;margin-top:0.6rem}
+    .gallery img{width:100%;height:280px;object-fit:cover;border-radius:8px;transition:transform .35s ease,opacity .35s}
+    .gallery img.pop{ transform: scale(1.03) }
+    .thumbs{display:flex;gap:0.5rem;margin-top:0.6rem}
+    .thumbs img{width:110px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:.9;transition:transform .18s,opacity .18s}
+    .thumbs img:hover{transform:translateY(-6px);opacity:1}
+
+    .accordion{background:var(--card);padding:0.6rem;border-radius:10px;box-shadow:var(--shadow)}
+    .accordion h3{margin:0}
+    .accordion .body{margin-top:0.6rem;opacity:0.95}
+
+    .why{display:flex;gap:0.8rem;margin-top:0.6rem}
+    .why .item{background:#fff;padding:0.6rem;border-radius:8px;flex:1;border-left:6px solid var(--accent-yellow)}
+
+    .fest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.8rem;margin-top:0.8rem}
+    .fest-card{background:var(--card);padding:0.8rem;border-radius:10px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+    .fest-card h3{margin:0 0 6px 0}
+
+    .badge{position:absolute;top:12px;right:12px;padding:6px 10px;border-radius:999px;font-weight:800;font-size:0.9rem}
+    .badge.blue{background:var(--mid-blue);color:white; animation:badgePulse 2.6s ease-in-out infinite}
+    .badge.yellow{background:var(--accent-yellow);color:#072117; animation:badgePulse 2.6s ease-in-out infinite}
+    .badge.red{background:var(--accent-red);color:white; animation:badgePulse 2.6s ease-in-out infinite}
+
+    .mini-badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:700;font-size:0.76rem;margin-left:8px}
+    .mini-blue{background:var(--mid-blue);color:white}
+    .mini-yellow{background:var(--accent-yellow);color:#072117}
+    .mini-red{background:var(--accent-red);color:white}
+
+    footer{max-width:1200px;margin:2rem auto;padding:1rem;text-align:center;color:#0e2e25}
+
+    @media (max-width:980px){.hero{grid-template-columns:1fr} .grid{grid-template-columns:1fr} .map-card{height:320px} .gallery img{height:200px}}
+
+    /* marker visuals */
+    .pulse-marker{width:18px;height:18px;border-radius:50%;box-shadow:0 0 12px rgba(0,0,0,0.15);border:2px solid white; transform-origin:center; transition:transform .25s}
+    .pulse-red{background:var(--accent-red); animation:pulse 2s infinite}
+    .pulse-yellow{background:var(--accent-yellow); animation:pulse 2.4s infinite}
+    .pulse-blue{background:var(--mid-blue); animation:pulse 2.8s infinite}
+    .pulse-marker.bounce{ animation: bounce .7s cubic-bezier(.2,.9,.2,1) both }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <!-- replaced SVG with a simple img using the Cloudinary logo you provided -->
+      <div class="logo" aria-hidden="true">
+        <img src="https://res.cloudinary.com/dlychx4cg/image/upload/v1757702367/logo_z1lzlb.jpg" alt="Discover Sikkim logo">
+      </div>
+
+      <div>
+        <div style="font-weight:800">Discover Sikkim</div>
+        <div style="font-size:0.86rem;opacity:0.95">Sacred monasteries, cultural history & festival guide</div>
+      </div>
+
+      <nav>
+        <a href="#monasteries">Monasteries</a>
+        <a href="#festivals">Festivals</a>
+        <a href="/">Interactive Map</a>
+
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>Explore Sikkim’s Sacred Monasteries</h1>
+      <p>Blue / Yellow / Red theme — upcoming festivals are highlighted on the map and in the festival cards. Dates are approximate; Tibetan-lunar dates shift every year.</p>
+      <div class="cta">
+        <button class="btn-primary" onclick="document.getElementById('monasteries').scrollIntoView({behavior:'smooth'})">Discover Monasteries</button>
+        <button class="btn-ghost" onclick="document.getElementById('festivals').scrollIntoView({behavior:'smooth'})">View Festivals</button>
+      </div>
+    </div>
+
+    <div class="map-card card-big">
+      <div id="map"></div>
+    </div>
+  </section>
+
+  <main class="content">
+    <div class="grid">
+      <aside class="panel-card">
+        <div class="search"><input id="search" placeholder="Search monastery or keyword..." /><button class="chip" id="reset">Reset</button></div>
+        <div class="chips" style="margin-top:0.6rem">
+          <div class="chip" data-filter="all">All</div>
+          <div class="chip" data-filter="historic">Historic</div>
+          <div class="chip" data-filter="popular">Popular</div>
+          <div class="chip" data-filter="festival">Festival</div>
+        </div>
+        <div class="list" id="list"></div>
+      </aside>
+
+      <section>
+        <div id="monasteries" class="card-big details">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h2 style="margin:0">Monasteries</h2>
+            <div style="opacity:0.85">Click a monastery to view history, festivals & galleries</div>
+          </div>
+          <div id="detail-area" style="margin-top:0.8rem"></div>
+        </div>
+
+        <div id="festivals" style="margin-top:1rem">
+          <h2>Festivals</h2>
+          <p style="opacity:0.9">Major festivals of Sikkim, approximate timing (by month), and main monasteries. This view highlights which ones are coming up soon.</p>
+          <div class="fest-grid" id="fest-grid"></div>
+        </div>
+
+        
+      </section>
+    </div>
+  </main>
+
+  <footer>© Discover Sikkim — Built for demo • Images provided by site owner.</footer>
+
+  <!-- lightbox -->
+  <div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(6,12,10,0.7);align-items:center;justify-content:center;z-index:9999">
+    <div style="width:min(980px,96%);background:var(--card);padding:8px;border-radius:10px">
+      <div style="display:flex;justify-content:flex-end"><button onclick="closeLight()" class="chip">✕</button></div>
+      <div style="height:520px;border-radius:8px;overflow:hidden"><img id="lbimg" src="" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem" id="lthumbs"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    // --- Data (your GeoJSON + meta + events) - unchanged
+    const data = {
+      "type": "FeatureCollection",
+      "features": [
+        {"type":"Feature","properties":{"name":"Rumtek Monastery","type":"monastery","images":["https://res.cloudinary.com/dlychx4cg/image/upload/v1757697906/images_7_i301cf.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757697952/Blog_20241231-1706054417-1735621009_jtyild.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757698005/c9c97b5f09b4294d3f01100d180d98aa_1000x1000_bqtspl.jpg"],"desc":"Rumtek — seat of the Karmapa lineage."},"geometry":{"type":"Point","coordinates":[88.536370,27.305827]}},
+        {"type":"Feature","properties":{"name":"Enchey Monastery (Gangtok)","type":"monastery","images":["https://res.cloudinary.com/dlychx4cg/image/upload/v1757697721/images_4_vcvf6i.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757697781/images_5_e6pybu.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757697827/images_6_rnpzz6.jpg"],"desc":"Enchey — a 200+-year-old monastery in Gangtok."},"geometry":{"type":"Point","coordinates":[88.619194,27.335863]}},
+        {"type":"Feature","properties":{"name":"Pemayangtse Monastery (Pelling)","type":"monastery","images":["https://res.cloudinary.com/dlychx4cg/image/upload/v1757685530/caf66d7d-26b2-43e4-a4b5-58d9ac8c6d90.png","https://res.cloudinary.com/dlychx4cg/image/upload/v1757685611/b43bd757-6d4b-40cf-aaa4-57a360009a06.png","https://res.cloudinary.com/dlychx4cg/image/upload/v1757685672/pemayangtse-monastery-03.jpg_braohc.webp"],"desc":"Pemayangtse — one of Sikkim's oldest monasteries."},"geometry":{"type":"Point","coordinates":[88.252040,27.304530]}},
+        {"type":"Feature","properties":{"name":"Tashiding Monastery","type":"monastery","images":["https://res.cloudinary.com/dlychx4cg/image/upload/v1757685750/Tashiding-Monastery-Sightseeing_uydhje.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757685821/20140371823_49e88604f9_b_upmc6j.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757685884/tashiding-monastery-pelling-sikkim-2-attr-hero_ihbgk9.jpg"],"desc":"Tashiding — sacred monastery on the Rathong river."},"geometry":{"type":"Point","coordinates":[88.297680,27.308690]}},
+        {"type":"Feature","properties":{"name":"Phodong Monastery","type":"monastery","images":["https://res.cloudinary.com/dlychx4cg/image/upload/v1757686007/images_lkofob.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757686045/darj_i0007d3_qsf7vo.webp","https://res.cloudinary.com/dlychx4cg/image/upload/v1757686113/images_1_l71mxb.jpg"],"desc":"Phodong — known for festivals and views."},"geometry":{"type":"Point","coordinates":[88.582944,27.416786]}},
+        {"type":"Feature","properties":{"name":"Ralang (Ralong) Monastery","type":"monastery","images":["https://res.cloudinary.com/dlychx4cg/image/upload/v1757697544/90830ab2-8705-4335-ba56-1f3aa8d5a53c_y2phwp.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757697593/images_2_d89zma.jpg","https://res.cloudinary.com/dlychx4cg/image/upload/v1757697631/images_3_inniso.jpg"],"desc":"Ralang — scenic monastery near Namchi."},"geometry":{"type":"Point","coordinates":[88.334780,27.328560]}}
+      ]
+    };
+
+    const meta = {
+      'Rumtek Monastery': {
+        hero: 'Rumtek is the largest Tibetan Buddhist monastery in Sikkim and serves as the seat of the Karma Kagyu lineage in exile.',
+        history: `Rumtek rose to prominence after the Karmapa established a large monastery here to preserve the Karma Kagyu tradition. In the 20th century Rumtek became the focal point for the exiled Karmapa and monastic community, housing important relics and a living scholarly tradition. Its architecture, grand prayer halls and vibrant festivals make it a pilgrimage site for practitioners and visitors.`,
+        famous: ['Seat of the Karmapa lineage','Large prayer halls and collections of thangkas','Major center for teachings and ceremonies'],
+        tags:['historic','popular'],
+        festivals: []
+      },
+      'Enchey Monastery (Gangtok)':{
+        hero: 'Perched on a hill above Gangtok, Enchey is known for its vibrant ritual calendar and close ties to the local community.',
+        history: `Enchey has served the spiritual needs of Gangtok for centuries. The monastery blends Nyingma ritual with local Sikkimese traditions; its annual masked dances and prayer ceremonies are important cultural spectacles.`,
+        famous: ['Masked dances (Chaam)','Central location in Gangtok','Rich local rituals and festivals'],
+        tags:['historic','popular'],
+        festivals: [{name:'Chaam (Masked Dances)', typicalWhen:'Tibetan 11th month (~Dec)', notes:'Enchey hosts annual Chaam performances, often in late autumn/early winter.', approxMonths:[11]}]
+      },
+      'Pemayangtse Monastery (Pelling)':{
+        hero: 'One of Sikkim’s most important monasteries historically and architecturally, with commanding views of the Himalaya.',
+        history: `Pemayangtse is traditionally regarded as one of the oldest and most important monasteries in western Sikkim. It has long been a religious center for the Nyingma school and was historically linked to the region’s early rulers.`,
+        famous:['Historic Nyingma monastery','Fine murals and ritual objects','Gateway to Pelling viewpoints'],
+        tags:['historic'],
+        festivals: [{name:'Chaam (Masked Dances)', typicalWhen:'Losar / Tibetan New Year (Feb–Mar)', notes:'Pemayangtse performs Drag-dmar chaam and Losar-related rituals.', approxMonths:[2,3]}]
+      },
+      'Tashiding Monastery':{
+        hero:'A compact, sacred monastery set on a ridge by the Rathong river, famous for the Bumchu ceremony.',
+        history:`Tashiding occupies an important place in local spiritual geography. The Bumchu — a water-divination ceremony — is associated strongly with Tashiding and attracts many visitors during festival time.`,
+        famous:['Bumchu water ceremony','Sacred hilltop location','Important pilgrimage site'],
+        tags:['historic','festival'],
+        festivals: [{name:'Bumchu', typicalWhen:'14–15th day of the 1st Tibetan month (Feb–Mar).', notes:'Holy vase opening/ water divination at Tashiding.', approxMonths:[2,3]}]
+      },
+      'Phodong Monastery':{
+        hero:'A peaceful monastery known for its scenic setting and vibrant annual festivals.',
+        history:`Phodong has long been a monastic center associated with festivals and community life.`,
+        famous:['Scenic setting and views','Local festival calendar','Active monastic community'],
+        tags:['popular'],
+        festivals: []
+      },
+      'Ralang (Ralong) Monastery':{
+        hero:'A scenic monastery near Namchi known for its colorful festivals and ongoing cultural programmes.',
+        history:`Ralang hosts important masked-dance celebrations and community festivals which celebrate protector deities and local traditions.`,
+        famous:['Pang Lhabsol celebrations','Community festivals and masked dances','Scenic hillside setting'],
+        tags:['popular','festival'],
+        festivals: [{name:'Pang Lhabsol', typicalWhen:'15th day of the 7th Tibetan month (late Aug–early Sep)', notes:'Festival to honour Kanchenjunga and local protector deities; parades and masked dances.', approxMonths:[8,9]}]
+      }
+    };
+
+    const events = [
+      {title:'Pang Lhabsol', where:'Ralang (also celebrated across Sikkim — Ravangla/Namchi areas)', when:'15th day of 7th Tibetan month — typically late August to early September', monasteries:['Ralang (Ralong Monastery)', 'Rumtek (local celebrations may occur)','Regional Ravangla/Namchi sites'], details:`Honours Mount Kanchenjunga and protective deities. Community processions, masked dances and offerings are key highlights. Dates follow the Tibetan lunar calendar and shift each year.`, approxMonths:[8,9]},
+      {title:'Bumchu', where:'Tashiding Monastery (West Sikkim)', when:'14–15th day of the 1st Tibetan month — typically February–March', monasteries:['Tashiding Monastery'], details:`Sacred water ceremony where a sealed vase is opened and monks read auspices for the coming year.`, approxMonths:[2,3]},
+      {title:'Chaam (Masked Dances)', where:'Pemayangtse, Enchey and several other monasteries', when:'Often during Losar (Tibetan New Year — around Feb–Mar) or specified monastery festival days (some in Dec)', monasteries:['Pemayangtse Monastery','Enchey Monastery'], details:`Chaam are ritual masked dances depicting Buddhist teachings; timings depend on the monastery.`, approxMonths:[2,3,11]}
+    ];
+
+    function daysUntilNext(approxMonths){
+      if(!approxMonths || !approxMonths.length) return Infinity;
+      const today = new Date();
+      const year = today.getFullYear();
+      const candidates = [];
+      approxMonths.forEach(m => {
+        candidates.push(new Date(year, m-1, 15));
+        candidates.push(new Date(year+1, m-1, 15));
+      });
+      let min = Infinity;
+      const oneDay = 24*60*60*1000;
+      candidates.forEach(d => {
+        const diff = Math.ceil((d - today) / oneDay);
+        if(diff >= 0 && diff < min) min = diff;
+      });
+      return min === Infinity ? Infinity : min;
+    }
+
+    // Map init
+    const map = L.map('map',{zoomControl:false}).setView([27.33,88.45],10);
+    L.control.zoom({position:'topright'}).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+
+    const list = document.getElementById('list');
+    const detailArea = document.getElementById('detail-area');
+
+    // build markers and list
+    data.features.forEach((f, idx)=>{
+      const p = f.properties;
+      // find related events and nearest days
+      const relatedEvents = events.filter(ev => ev.monasteries.some(mn => mn.toLowerCase().includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(mn.toLowerCase())));
+      let nearestDays = Infinity;
+      relatedEvents.forEach(ev => { const d = daysUntilNext(ev.approxMonths); if(d < nearestDays) nearestDays = d; });
+
+      // marker color: red <=14d, yellow <=90d, blue otherwise
+      let colorClass='pulse-blue';
+      if(nearestDays <= 14) colorClass='pulse-red';
+      else if(nearestDays <= 90) colorClass='pulse-yellow';
+
+      const myIcon = L.divIcon({className: 'custom-div-icon', html:`<div class="pulse-marker ${colorClass}" title="${p.name}"></div>`, iconSize:[24,24], iconAnchor:[12,12]});
+      const marker = L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]],{icon:myIcon}).addTo(map);
+      marker.bindTooltip(p.name,{direction:'top',offset:[0,-14]});
+
+      // marker click: bounce + open detail
+      marker.on('click', () => {
+        const el = marker.getElement();
+        if(el){
+          const pm = el.querySelector('.pulse-marker');
+          if(pm){
+            pm.classList.remove('bounce');
+            void pm.offsetWidth;
+            pm.classList.add('bounce');
+            setTimeout(()=>pm.classList.remove('bounce'),900);
+          }
+        }
+        showDetail(p, f.geometry.coordinates);
+      });
+
+      // list item
+      let badgeHtml = '';
+      if(nearestDays !== Infinity){
+        if(nearestDays <= 14) badgeHtml = `<span class="mini-badge mini-red">${nearestDays}d</span>`;
+        else if(nearestDays <= 90) badgeHtml = `<span class="mini-badge mini-yellow">${nearestDays}d</span>`;
+        else badgeHtml = `<span class="mini-badge mini-blue">${nearestDays}d</span>`;
+      }
+      const el = document.createElement('div'); el.className='item';
+      el.innerHTML = `<img class='thumb' src='${p.images[0]}' alt='${p.name}'/>
+                      <div style="flex:1">
+                        <div style="display:flex;align-items:center;justify-content:space-between">
+                          <strong>${p.name}</strong><div>${badgeHtml}</div>
+                        </div>
+                        <div style='opacity:0.85;margin-top:6px'>${meta[p.name].hero}</div>
+                        <div style='margin-top:6px;font-size:0.9rem;opacity:0.8'>Festivals: ${meta[p.name].festivals.length? meta[p.name].festivals.map(x=>x.name).join(', '): '—'}</div>
+                      </div>`;
+      el.addEventListener('click', ()=>{ showDetail(p, f.geometry.coordinates); map.setView([f.geometry.coordinates[1], f.geometry.coordinates[0]],13); });
+      list.appendChild(el);
+    });
+
+    // show details (history + gallery + festivals)
+    function showDetail(props, coords){
+      const m = meta[props.name] || {history:'', famous:[], festivals:[]};
+      const relatedEvents = events.filter(ev => ev.monasteries.some(mn => mn.toLowerCase().includes(props.name.toLowerCase()) || props.name.toLowerCase().includes(mn.toLowerCase())));
+      const relHtml = relatedEvents.length ? relatedEvents.map(ev => {
+        const days = daysUntilNext(ev.approxMonths);
+        let badge = '';
+        if(days <= 14) badge = `<span class="mini-badge mini-red">${days}d</span>`;
+        else if(days <= 90) badge = `<span class="mini-badge mini-yellow">${days}d</span>`;
+        else badge = `<span class="mini-badge mini-blue">${days}d</span>`;
+        return `<div style="margin-bottom:0.4rem"><strong>${ev.title}</strong> — Typical: ${ev.when} <div style="margin-top:6px">${ev.details}</div><div style="margin-top:6px">${badge}</div></div>`;
+      }).join('') : 'No major festivals recorded.';
+
+      detailArea.innerHTML = `
+        <div class='card-big'>
+          <div style='display:flex;justify-content:space-between;align-items:center'>
+            <div><h2 style='margin:0'>${props.name}</h2><div style='opacity:0.8'>${coords[1].toFixed(5)}, ${coords[0].toFixed(5)}</div></div>
+            <div><button class='btn-primary' onclick="document.getElementById('festivals').scrollIntoView({behavior:'smooth'})">View Festivals</button></div>
+          </div>
+          <div class='gallery' style='margin-top:0.8rem'><img id='main-img' class='pop' src='${props.images[0]}' alt='main image'/></div>
+          <div class='thumbs' style='margin-top:0.6rem'>${props.images.map((u,i)=>`<img src='${u}' data-idx="${i}" />`).join('')}</div>
+        </div>
+
+        <div class='accordion' style='margin-top:0.8rem'>
+          <h3>History</h3>
+          <div class='body'>${m.history}</div>
+        </div>
+
+        <div class='why'>
+          <div class='item'><strong>Why it is famous</strong><ul style='margin:0.4rem 0 0 1rem;padding:0;opacity:0.9'>${(m.famous||[]).map(x=>`<li>${x}</li>`).join('')}</ul></div>
+          <div class='item'><strong>Festivals & timing</strong><div style='margin-top:0.4rem;opacity:0.9'>${relHtml}</div></div>
+        </div>
+      `;
+
+      // thumbnails -> main image with fade/pop effect
+      const mainImg = document.getElementById('main-img');
+      const thumbs = detailArea.querySelectorAll('.thumbs img');
+      thumbs.forEach(t => t.addEventListener('click', (ev) => {
+        const src = ev.currentTarget.src;
+        if(mainImg.src === src) return;
+        mainImg.classList.remove('pop');
+        mainImg.style.opacity = 0;
+        setTimeout(()=>{ mainImg.src = src; mainImg.classList.add('pop'); mainImg.style.opacity = 1; }, 160);
+      }));
+      mainImg.addEventListener('click', ()=> openLight(props.images));
+    }
+
+    // filters and search
+    const chips = document.querySelectorAll('.chip');
+    chips.forEach(c => c.addEventListener('click', () => {
+      chips.forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      const tag = c.dataset.filter;
+      const items = Array.from(document.querySelectorAll('.list .item'));
+      items.forEach(it => {
+        const nm = it.querySelector('strong').textContent;
+        const tags = meta[nm] && meta[nm].tags ? meta[nm].tags : [];
+        if(tag === 'all' || (tag === 'festival' ? tags.includes('festival') : tags.includes(tag))) it.style.display = '';
+        else it.style.display = 'none';
+      });
+    }));
+    document.getElementById('reset').addEventListener('click', ()=> { document.getElementById('search').value=''; document.querySelectorAll('.chip')[0].click(); });
+
+    document.getElementById('search').addEventListener('input', ()=> {
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const items = Array.from(document.querySelectorAll('.list .item'));
+      items.forEach(it => {
+        const txt = it.textContent.toLowerCase();
+        it.style.display = txt.includes(q) ? '' : 'none';
+      });
+    });
+
+    // render festivals grid with badges showing days-until
+    const festGrid = document.getElementById('fest-grid');
+    events.forEach(ev => {
+      const days = daysUntilNext(ev.approxMonths);
+      let badgeClass = 'blue';
+      if(days <= 14) badgeClass = 'red';
+      else if(days <= 90) badgeClass = 'yellow';
+      const d = document.createElement('div'); d.className='fest-card';
+      d.innerHTML = `<div style="position:relative"><h3>${ev.title}</h3><div style='opacity:0.85;margin-top:6px'>Where: ${ev.where}</div><div style='opacity:0.85'>Typical time: ${ev.when}</div><div style='opacity:0.85'>Monasteries: ${ev.monasteries.join(', ')}</div><p style='margin-top:0.6rem'>${ev.details}</p></div>`;
+      const badge = document.createElement('div'); badge.className = `badge ${badgeClass}`;
+      badge.textContent = days === Infinity ? 'No date' : days <= 0 ? 'Happening now' : `In ${days}d`;
+      d.appendChild(badge);
+      festGrid.appendChild(d);
+    });
+
+    // lightbox functions
+    function openLight(images){
+      const lb = document.getElementById('lightbox'); const img = document.getElementById('lbimg'); const thumbs = document.getElementById('lthumbs');
+      img.src = images[0]; thumbs.innerHTML = images.map(u=>`<img src='${u}' style='width:90px;height:64px;object-fit:cover;border-radius:6px;margin-right:6px;cursor:pointer' onclick="document.getElementById('lbimg').src='${u}'"/>`).join('');
+      lb.style.display='flex';
+    }
+    function closeLight(){ document.getElementById('lightbox').style.display='none'; }
+    window.openLight = openLight; window.closeLight = closeLight;
+
+    // default: show first monastery details
+    if(data.features && data.features.length) showDetail(data.features[0].properties, data.features[0].geometry.coordinates);
+    document.querySelectorAll('.chip')[0].classList.add('active');
+  </script>
+</body>
+</html>

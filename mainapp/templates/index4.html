@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Monastery360 - Single file demo</title>
+
+  <!-- Google font (Nunito feel) -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#0b1220;
+      --muted:#94a3b8;
+      --accent:#7c3aed;
+      --glass: rgba(255,255,255,0.03);
+      color-scheme: dark;
+    }
+    html,body{height:100%;margin:0;font-family:Nunito, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    body{background:linear-gradient(180deg,#071129 0%, #071122 60%); color:#e6eef8; display:flex; gap:16px; padding:20px; box-sizing:border-box;}
+    .app { display: grid; grid-template-columns: 360px 1fr; gap:16px; width:100%; max-width:1400px; margin:0 auto; }
+    .card { background:var(--card); border-radius:12px; padding:16px; box-shadow: 0 6px 24px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.03); }
+    header { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    header h1{margin:0;font-size:18px;font-weight:700;}
+    header p{margin:0;color:var(--muted);font-size:12px;}
+    #sidebar { display:flex; flex-direction:column; height:calc(100vh - 60px); }
+    #search { margin-bottom:12px; display:flex; gap:8px; }
+    #search input{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass); color:inherit;}
+    #list { overflow:auto; padding-right:8px; }
+    .item { padding:10px;border-radius:8px; margin-bottom:8px; background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent); cursor:pointer; border:1px solid rgba(255,255,255,0.02); }
+    .item h3{margin:0;font-size:14px;}
+    .item p{margin:6px 0 0 0;color:var(--muted);font-size:12px;}
+    #map { height: calc(100vh - 40px); border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.03); }
+    .controls { display:flex; gap:8px; margin-top:8px; }
+    .btn { background:linear-gradient(180deg,var(--accent), #5b21b6); padding:8px 12px;border-radius:8px;border:none;color:white;cursor:pointer;font-weight:600; }
+    .small { font-size:12px; padding:6px 8px; }
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,0.6); z-index:60; }
+    .modal { width:920px; max-width:95%; max-height:90vh; overflow:auto; background:#07132a; border-radius:12px; padding:16px; border:1px solid rgba(255,255,255,0.04); }
+    .modal .flex { display:flex; gap:12px; }
+    .media { width:360px; height:220px; border-radius:8px; background:#051026; display:flex; align-items:center; justify-content:center; color:var(--muted); overflow:hidden; }
+    .meta { flex:1; }
+    .meta h2{margin:0 0 6px 0;}
+    .meta p{margin:0;color:var(--muted);font-size:13px;}
+    .archive-list, .event-list { margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+    a.archive { color:#8ad4ff; text-decoration:none; font-size:13px; }
+    footer.small { color:var(--muted); font-size:12px; margin-top:12px; }
+    @media (max-width:900px){ .app{ grid-template-columns: 1fr; } #sidebar{height:auto;} #map{height:60vh;} .modal{width:96%} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <div id="sidebar" class="card">
+      <header>
+        <div>
+          <h1>Monastery360</h1>
+          <p>Explore sacred heritage — map & details (single file demo)</p>
+        </div>
+      </header>
+
+      <div id="search">
+        <input id="q" placeholder="Search by name or district..." />
+        <button id="btn-reset" class="btn small">Reset</button>
+      </div>
+
+      <div id="list" aria-live="polite"></div>
+
+      <div class="controls">
+        <button id="zoom-sikkim" class="btn small">Zoom to Sikkim</button>
+        <button id="toggle-list" class="btn small">Toggle List</button>
+      </div>
+
+      <footer class="small">This demo loads data locally, no server required.</footer>
+    </div>
+
+    <!-- Map -->
+    <div class="card" style="padding:0;">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal-backdrop" class="modal-backdrop" role="dialog" aria-hidden="true">
+    <div class="modal" role="document">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 id="modal-title">Monastery</h2>
+        <div>
+          <button id="btn-close" class="btn small" style="background:transparent;border:1px solid rgba(255,255,255,0.06);">Close</button>
+        </div>
+      </div>
+
+      <div class="flex" style="margin-top:12px;">
+        <div class="media" id="modal-media">No panorama</div>
+        <div class="meta">
+          <p id="modal-short"></p>
+          <p id="modal-desc" style="margin-top:8px;"></p>
+          <div class="archive-list" id="modal-archives"></div>
+          <div class="event-list" id="modal-events"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
+        <audio id="modal-audio" controls style="width:360px;"></audio>
+        <div style="flex:1;">
+          <div id="modal-video"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+  // ======= Mock data (from your seed) =======
+  const MONASTERIES = [
+    {
+      id: 'rumtek',
+      name: 'Rumtek Monastery',
+      lat: 27.338000,
+      lng: 88.606500,
+      district: 'Gangtok',
+      short: "One of Sikkim's largest and most important monasteries.",
+      description: 'Founded in the 16th century, Rumtek houses spectacular murals and ritual objects. This monastery serves as the seat of the Karmapa and is renowned for its golden stupa and sacred relics.',
+      panorama: '', // local file in your project; demo left blank
+      audio: '', // leave blank or put mp3 URL
+      video360: 'https://www.youtube.com/embed/CExBjAFqIy4?vr=1&modestbranding=1&rel=0',
+      archives: [
+        { title: 'Historical Documents', url: '#' },
+        { title: 'Mural Photography Collection', url: '#' },
+        { title: 'Architectural Plans', url: '#' },
+      ],
+      events: [
+        { date: '2025-11-10', name: 'Annual Cham Dance Festival' },
+        { date: '2025-12-15', name: 'Winter Solstice Ceremony' },
+      ],
+    },
+    {
+      id: 'tashiding',
+      name: 'Tashiding Monastery',
+      lat: 27.292000,
+      lng: 88.355000,
+      district: 'West Sikkim',
+      short: 'A holy site perched on a hill, famous for sunset views.',
+      description: 'Built in 1717, Tashiding is one of the most sacred monasteries in Sikkim. It is known for its annual Bumchu festival where holy water is blessed.',
+      panorama: '',
+      audio: '',
+      video360: 'https://www.youtube.com/embed/dQw4w9WgXcQ?vr=1&modestbranding=1&rel=0',
+      archives: [
+        { title: 'Sacred Water Ceremony Guide', url: '#' },
+        { title: 'Hilltop Architecture Study', url: '#' },
+      ],
+      events: [
+        { date: '2025-02-14', name: 'Bumchu Festival' },
+        { date: '2025-10-20', name: 'Autumn Prayer Ceremony' },
+      ],
+    },
+    {
+      id: 'ralang',
+      name: 'Ralang Monastery',
+      lat: 27.235000,
+      lng: 88.458000,
+      district: 'South Sikkim',
+      short: 'Historic monastery famous for its sacred dances and annual festivals.',
+      description: 'Ralang Monastery, built in 1768, is renowned for its sacred Cham dances performed during festivals. It houses valuable thangkas and ancient texts.',
+      panorama: '',
+      audio: '',
+      video360: 'https://www.youtube.com/embed/v3N4lQuX_zE?vr=1&modestbranding=1&rel=0',
+      archives: [
+        { title: 'Sacred Dance Documentation', url: '#' },
+        { title: 'Thangka Collection Catalog', url: '#' },
+      ],
+      events: [
+        { date: '2025-03-22', name: 'Spring Cham Dance Festival' },
+        { date: '2025-11-08', name: 'Annual Thangka Exhibition' },
+      ],
+    },
+    {
+      id: 'lingdum',
+      name: 'Lingdum Monastery',
+      lat: 27.278000,
+      lng: 88.545000,
+      district: 'East Sikkim',
+      short: 'Modern monastery known for its architectural beauty and cultural programs.',
+      description: 'Also known as Ranka Monastery, established in 1999. Famous for its stunning architecture and meditation programs.',
+      panorama: '',
+      audio: '',
+      video360: 'https://www.youtube.com/embed/jNQXAC9IVRw?vr=1&modestbranding=1&rel=0',
+      archives: [
+        { title: 'Modern Buddhist Architecture', url: '#' },
+        { title: 'Meditation Program Guide', url: '#' },
+      ],
+      events: [
+        { date: '2025-05-16', name: 'Buddha Purnima Celebration' },
+        { date: '2025-09-12', name: 'Meditation Retreat Opening' },
+      ],
+    },
+    {
+      id: 'pemayangtse',
+      name: 'Pemayangtse Monastery',
+      lat: 27.378000,
+      lng: 88.245000,
+      district: 'West Sikkim',
+      short: 'One of the oldest and most important monasteries in Sikkim.',
+      description: 'Founded in 1705, Pemayangtse houses ancient scriptures and a famous seven-tiered wooden sculpture.',
+      panorama: '',
+      audio: '',
+      video360: 'https://www.youtube.com/embed/M7lc1UVf-VE?vr=1&modestbranding=1&rel=0',
+      archives: [
+        { title: 'Ancient Scriptures Collection', url: '#' },
+        { title: 'Seven-Tiered Sculpture Study', url: '#' },
+      ],
+      events: [
+        { date: '2025-01-28', name: 'Cham Dance Festival' },
+        { date: '2025-06-15', name: 'Ancient Texts Exhibition' },
+      ],
+    },
+    {
+      id: 'dubdi',
+      name: 'Dubdi Monastery',
+      lat: 27.301000,
+      lng: 88.267000,
+      district: 'West Sikkim',
+      short: 'The first monastery built in Sikkim, rich in historical significance.',
+      description: 'Dubdi Monastery, built in 1701, was established by Lhatsun Chempo. It is located above Yuksom.',
+      panorama: '',
+      audio: '',
+      video360: 'https://www.youtube.com/embed/2g811Eo7K8U?vr=1&modestbranding=1&rel=0',
+      archives: [
+        { title: 'First Monastery Documentation', url: '#' },
+        { title: 'Lhatsun Chempo Biography', url: '#' },
+      ],
+      events: [
+        { date: '2025-04-10', name: 'Foundation Day Celebration' },
+        { date: '2025-08-25', name: 'Historical Pilgrimage' },
+      ],
+    },
+    {
+      id: 'do-drul-chorten',
+      name: 'Do Drul Chorten Monastery',
+      lat: 27.338000,
+      lng: 88.606500,
+      district: 'Gangtok',
+      short: 'Important stupa and monastery complex in the heart of Gangtok.',
+      description: 'Do Drul Chorten is a significant stupa built in 1945 and surrounded by 108 prayer wheels.',
+      panorama: '',
+      audio: '',
+      video360: 'https://www.youtube.com/embed/e3FJK6JTVV4?vr=1&modestbranding=1&rel=0',
+      archives: [
+        { title: 'Stupa Architecture Guide', url: '#' },
+        { title: 'Prayer Wheel Significance', url: '#' },
+      ],
+      events: [
+        { date: '2025-07-08', name: 'Guru Rinpoche Celebration' },
+        { date: '2025-12-22', name: 'Winter Prayer Festival' },
+      ],
+    },
+  ];
+
+  // ======= UI + map logic =======
+  const listEl = document.getElementById('list');
+  const qInput = document.getElementById('q');
+  const btnReset = document.getElementById('btn-reset');
+  const btnZoom = document.getElementById('zoom-sikkim');
+  const btnToggleList = document.getElementById('toggle-list');
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const modalTitle = document.getElementById('modal-title');
+  const modalShort = document.getElementById('modal-short');
+  const modalDesc = document.getElementById('modal-desc');
+  const modalArchives = document.getElementById('modal-archives');
+  const modalEvents = document.getElementById('modal-events');
+  const modalMedia = document.getElementById('modal-media');
+  const modalAudio = document.getElementById('modal-audio');
+  const modalVideo = document.getElementById('modal-video');
+  const btnClose = document.getElementById('btn-close');
+
+  let map = L.map('map', { zoomControl: true }).setView([27.3, 88.45], 9);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // markers map
+  const markers = {};
+
+  function createMarkers(data) {
+    data.forEach(m=>{
+      const marker = L.marker([m.lat, m.lng]).addTo(map)
+        .bindPopup(`<strong>${escapeHtml(m.name)}</strong><br><em>${escapeHtml(m.district)}</em>`)
+        .on('click', ()=> openModal(m.id));
+      markers[m.id] = marker;
+    });
+  }
+
+  function escapeHtml(s){
+    if(!s) return '';
+    return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];});
+  }
+
+  // Render list
+  function renderList(data){
+    listEl.innerHTML = '';
+    data.forEach(m=>{
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.innerHTML = `<h3>${escapeHtml(m.name)}</h3><p>${escapeHtml(m.short)}</p><p style="color:var(--muted);font-size:12px;margin-top:6px">${escapeHtml(m.district)} • ${m.lat.toFixed(6)}, ${m.lng.toFixed(6)}</p>`;
+      el.onclick = () => {
+        focusOn(m.id);
+        openModal(m.id);
+      };
+      listEl.appendChild(el);
+    });
+  }
+
+  function focusOn(id){
+    const m = MONASTERIES.find(x=>x.id===id);
+    if(!m) return;
+    map.setView([m.lat,m.lng], 13, { animate: true });
+    if(markers[id]) markers[id].openPopup();
+  }
+
+  // Modal population + open/close
+  function openModal(id){
+    const m = MONASTERIES.find(x=>x.id===id);
+    if(!m) return;
+    modalTitle.textContent = m.name;
+    modalShort.textContent = m.short;
+    modalDesc.textContent = m.description;
+
+    // media: show panorama if present else placeholder
+    if(m.panorama){
+      modalMedia.innerHTML = `<img src="${m.panorama}" alt="${m.name} panorama" style="width:100%;height:100%;object-fit:cover">`;
+    } else {
+      modalMedia.innerHTML = `<div style="padding:12px;text-align:center;color:var(--muted)"><strong>No panorama provided</strong><div style="margin-top:6px;font-size:12px">You can add panorama path in the data</div></div>`;
+    }
+
+    // audio
+    if(m.audio){
+      modalAudio.src = m.audio;
+      modalAudio.style.display = 'block';
+    } else {
+      modalAudio.src = '';
+      modalAudio.style.display = 'none';
+    }
+
+    // video
+    if(m.video360){
+      modalVideo.innerHTML = `<iframe width="100%" height="200" src="${m.video360}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+    } else {
+      modalVideo.innerHTML = '';
+    }
+
+    // archives
+    modalArchives.innerHTML = '';
+    if(Array.isArray(m.archives) && m.archives.length){
+      m.archives.forEach(a=>{
+        const aEl = document.createElement('a');
+        aEl.className = 'archive';
+        aEl.href = a.url || '#';
+        aEl.target = '_blank';
+        aEl.textContent = '📄 ' + a.title;
+        modalArchives.appendChild(aEl);
+      });
+    }
+
+    // events
+    modalEvents.innerHTML = '';
+    if(Array.isArray(m.events) && m.events.length){
+      m.events.forEach(e=>{
+        const ev = document.createElement('div');
+        ev.style.color = 'var(--muted)';
+        ev.style.fontSize = '13px';
+        ev.textContent = `${e.date} — ${e.name}`;
+        modalEvents.appendChild(ev);
+      });
+    }
+
+    modalBackdrop.style.display = 'flex';
+    modalBackdrop.setAttribute('aria-hidden','false');
+  }
+
+  function closeModal(){
+    modalBackdrop.style.display = 'none';
+    modalBackdrop.setAttribute('aria-hidden','true');
+    // stop media
+    modalAudio.pause();
+    modalAudio.currentTime = 0;
+    modalVideo.innerHTML = '';
+  }
+
+  btnClose.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', (ev)=>{
+    if(ev.target === modalBackdrop) closeModal();
+  });
+
+  // filtering
+  function applyFilter(){
+    const q = (qInput.value || '').trim().toLowerCase();
+    const filtered = MONASTERIES.filter(m=>{
+      if(!q) return true;
+      return m.name.toLowerCase().includes(q) || (m.district||'').toLowerCase().includes(q) || (m.short||'').toLowerCase().includes(q);
+    });
+    renderList(filtered);
+    // update markers: remove all and add filtered
+    Object.values(markers).forEach(marker => {
+      try{ map.removeLayer(marker); }catch(e){}
+    });
+    for(const k in markers) delete markers[k];
+    createMarkers(filtered);
+    if(filtered.length) map.fitBounds(filtered.map(x=>[x.lat,x.lng]), { padding:[60,60] });
+  }
+
+  qInput.addEventListener('input', ()=> applyFilter());
+  btnReset.addEventListener('click', ()=>{
+    qInput.value = '';
+    applyFilter();
+  });
+
+  btnZoom.addEventListener('click', ()=>{
+    map.setView([27.3,88.45],9);
+  });
+
+  let listVisible = true;
+  btnToggleList.addEventListener('click', ()=>{
+    listVisible = !listVisible;
+    document.getElementById('sidebar').style.display = listVisible ? 'flex' : 'none';
+  });
+
+  // init
+  renderList(MONASTERIES);
+  createMarkers(MONASTERIES);
+  // fit bounds to all markers
+  map.fitBounds(MONASTERIES.map(x=>[x.lat,x.lng]), { padding:[60,60] });
+
+  // keyboard: Escape to close modal
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape') closeModal();
+  });
+
+  // small utility: open first item if url hash points to id
+  if(location.hash){
+    const id = location.hash.replace('#','');
+    const item = MONASTERIES.find(m => m.id === id);
+    if(item){
+      focusOn(id);
+      setTimeout(()=> openModal(id), 400);
+    }
+  }
+  </script>
+</body>
+</html>

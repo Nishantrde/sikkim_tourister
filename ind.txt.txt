@@ -1,0 +1,674 @@
+<!doctype html> 
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Sikkim — Interactive GeoJSON Map (Dark, Wide Borders) — Real Roads</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root{
+      --sikkim-blue:#07119e;
+      --sikkim-yellow:#fff200;
+      --sikkim-red:#ff1b00;
+      --sikkim-green:#2ea043;
+      --muted:#9fb0c8;
+      --panel:rgba(3,6,23,0.70);
+      --glass:rgba(255,255,255,0.03);
+      --text:#e6eef8;
+      --border-dark: #000814; /* dark border color */
+      --shadow:0 10px 30px rgba(2,6,23,0.6);
+    }
+    html,body{ height:100%; margin:0; font-family: Nunito, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; color:var(--text); background: linear-gradient(180deg, #03061a 0%, #071227 60%, #081427 100%); }
+    .app{ display:grid; grid-template-columns:360px 1fr; gap:18px; padding:18px; height:100vh; box-sizing:border-box; }
+    .panel{ background: linear-gradient(180deg, rgba(255,242,0,0.03), rgba(255,255,255,0.01)), linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.04)); border-radius:14px; padding:18px; backdrop-filter: blur(6px) saturate(1.06); box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.04); color:var(--muted); display:flex; flex-direction:column; gap:12px; transform: translateY(18px); opacity:0; animation: slideIn .6s cubic-bezier(.2,.9,.22,1) forwards; }
+    @keyframes slideIn{ to{ transform:none; opacity:1; } }
+    .logo{ width:54px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:800; color: #071227; font-size:16px; background: linear-gradient(90deg, var(--sikkim-blue) 0% 12%, var(--sikkim-yellow) 12% 88%, var(--sikkim-red) 88% 100%); box-shadow: 0 6px 18px rgba(3,8,40,0.6); border: 1px solid rgba(0,0,0,0.25); }
+    .subtitle{ font-size:12px; margin:0; color:var(--muted); }
+    #map{ width:100%; height:100%; border-radius:12px; overflow:hidden; box-shadow: var(--shadow); }
+    .info{ position:absolute; left:28px; top:28px; z-index:1000; background: linear-gradient(180deg, rgba(3,6,23,0.86), rgba(4,7,35,0.80)); padding:12px 14px; border-radius:12px; color:var(--text); border:1px solid rgba(255,255,255,0.03); box-shadow: 0 10px 30px rgba(2,6,23,0.65); transition: left .22s ease, right .22s ease, transform .22s ease; max-width:360px; }
+    .legend-item{ display:flex; gap:10px; align-items:center; font-size:13px; color:var(--text); }
+    .swatch{ width:16px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,0.18); box-shadow:0 3px 10px rgba(2,6,23,0.35) inset; }
+    .nice-popup .leaflet-popup-content-wrapper{ border-radius:10px; background: linear-gradient(180deg, #06102a, #071227); color:var(--text); padding:12px; border:2px solid rgba(255,242,0,0.06); box-shadow: 0 10px 24px rgba(3,6,23,0.7); }
+
+    /* Remove SVG focus box that appears on click */
+    .leaflet-interactive:focus,
+    .leaflet-interactive:active,
+    .leaflet-interactive:focus-visible { outline:none !important; box-shadow:none !important; }
+    .leaflet-container svg .leaflet-interactive { outline:none !important; -webkit-focus-ring-color: transparent; }
+
+    .leaflet-interactive{ transition: transform 320ms cubic-bezier(.2,.9,.22,1), fill-opacity 360ms ease, stroke-width 260ms ease; transform-origin:center center; }
+    .control-row{ display:flex; gap:8px; align-items:center; }
+    .small{ padding:6px 8px; border-radius:8px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.03); cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel" role="complementary" aria-label="Controls">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="logo">SK</div>
+        <div style="min-width:0">
+          <h1 style="margin:0;color:var(--text);font-size:16px">Sikkim GeoJSON</h1>
+          <p class="subtitle">Dark, wide borders enabled — real OSM roads</p>
+        </div>
+      </div>
+
+      <div style="margin-top:6px">
+        <label style="font-size:13px;color:var(--text);display:block;margin-bottom:6px">Search place (Sikkim only)</label>
+        <div style="display:flex;gap:8px;align-items:center"><input id="searchInput" type="search" placeholder="e.g. Gangtok" style="flex:1;padding:8px;border-radius:8px;background:transparent;color:inherit;border:1px solid rgba(255,255,255,0.03)"><button id="searchBtn" class="small">Search</button></div>
+        <div id="searchResults" style="display:none;max-height:220px;overflow:auto;border-radius:10px;margin-top:8px"></div>
+      </div>
+
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="flex:1">Base map</label>
+          <select id="basemapSelect" style="background:transparent;color:inherit;border-radius:8px;padding:6px;border:1px solid rgba(255,255,255,0.03)">
+            <option value="osm">OpenStreetMap</option>
+            <option value="sat">Satellite</option>
+            <option value="gray">Grayscale</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="flex:1">GeoJSON opacity</label>
+          <input id="opacity" type="range" min="0" max="1" step="0.05" value="0.5" style="flex:1">
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="control-row"><input id="colorToggle" type="checkbox" checked /><label for="colorToggle">Show district colors</label></div>
+          <div class="control-row"><input id="borderToggle" type="checkbox" checked /><label for="borderToggle">Show borders (dark & wide)</label></div>
+          <div class="control-row"><input id="roadsToggle" type="checkbox" /><label for="roadsToggle">Show roads (OSM)</label></div>
+
+          <!-- Roads filter UI (new) -->
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="flex:1">Road filter</label>
+            <select id="roadsFilterSelect" style="background:transparent;color:inherit;border-radius:8px;padding:6px;border:1px solid rgba(255,255,255,0.03)">
+              <option value="major">Major roads (motorway/trunk/primary/...)</option>
+              <option value="national">National Highways only (ref starts with "NH")</option>
+            </select>
+          </div>
+
+          <div class="control-row"><input id="locationsToggle" type="checkbox" /><label for="locationsToggle">Show important locations</label></div>
+          <div class="control-row"><input id="citiesToggle" type="checkbox" /><label for="citiesToggle">Show cities</label></div>
+        </div>
+
+        <div style="display:flex;gap:8px"><button id="zoomToAll" class="small">Zoom to Sikkim</button><button id="streetView" class="small">Street View</button></div>
+
+        <div style="margin-top:6px"><strong style="color:var(--text)">Districts</strong><div id="legendItems" style="margin-top:8px"></div></div>
+      </div>
+    </aside>
+
+    <main style="position:relative">
+      <div id="map" role="application" aria-label="Map"></div>
+      <div class="info" id="infoCard"><div style="display:flex;gap:10px;align-items:center"><img src="https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png" style="width:64px;height:64px;object-fit:contain;border-radius:8px"><div><h3 style="margin:0;color:var(--sikkim-yellow)">Hover over a district</h3><p id="infoText" style="margin:0;color:var(--muted)">District name, code and other properties appear here.</p></div></div></div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src=""></script>
+  <script>
+    /***********************
+     *  PLACEHOLDER GEOJSON
+     *  Replace these with your real data (or fetch externally)
+     ***********************/
+    const geojson = {{ geojson|safe }};; // replace with your district GeoJSON (FeatureCollection) 
+
+    // small placeholder for locations (so toggle won't error if you don't provide data)
+    const locationsGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        /* add features like airports, govt buildings if you have them */
+      ]
+    };
+
+    // Sample cities (points) — replace with your own data if available
+    const citiesGeoJSON = {{ citiesgeojson|safe }}
+
+    /***********************
+     *  Map & base layers
+     ***********************/
+    const map = L.map('map', { zoomControl:false });
+    L.control.scale({position:'bottomleft'}).addTo(map);
+    L.control.zoom({position:'bottomright'}).addTo(map);
+
+    // ----- tile layers -----
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' });
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+    const gray = L.tileLayer('https://tiles.wmflabs.org/bw-mapnik/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap contributors' });
+
+    osm.setZIndex(0); satellite.setZIndex(0); gray.setZIndex(0);
+    osm.addTo(map);
+
+    const osmOverlay = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors', pane: 'overlayPane' });
+    osmOverlay.setZIndex(650);
+
+    /***********************
+     *  Colors & style helpers
+     ***********************/
+    const districtColors = {
+      'East District':   '#fff200',
+      'North  District': '#07119e',
+      'South District':  '#ff1b00',
+      'West District':   '#2ea043'
+    };
+    function getColorByName(name){ return districtColors[name] || '#94a3b8'; }
+
+    const BASE_BORDER_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--border-dark') || '#000814';
+    const BASE_BORDER_WEIGHT = 4; // default wide border
+
+    function baseStyle(feature){
+      const name = feature.properties && (feature.properties.Dist_Name || feature.properties.DIST_NAME || feature.properties.Dist || feature.properties.name);
+      return { color: BASE_BORDER_COLOR, weight: BASE_BORDER_WEIGHT, fillColor:getColorByName(name), fillOpacity:0.5, dashArray:'', lineJoin:'round' };
+    }
+
+    const svgRenderer = L.svg();
+
+    /***********************
+     *  Info card
+     ***********************/
+    const infoCard = document.getElementById('infoCard');
+    const thumbUrl = 'https://res.cloudinary.com/dbrvducfo/image/upload/v1757004023/buddha-removebg-preview_razlnq.png';
+    function showInfo(props){
+      if(!props){
+        infoCard.innerHTML = `<div style="display:flex;gap:10px;align-items:center"><img src="${thumbUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px"><div><h3 style="margin:0;color:var(--sikkim-yellow)">Hover over a district</h3><p id="infoText" style="margin:0;color:var(--muted)">District name, code and other properties appear here.</p></div></div>`;
+        return;
+      }
+      infoCard.innerHTML = `<div style="display:flex;gap:10px;align-items:center"><img src="${thumbUrl}" style="width:64px;height:64px;object-fit:contain;border-radius:8px"><div><h3 style="margin:0;color:var(--sikkim-yellow)">${props.Dist_Name||props.name||props.title||'Feature'}</h3><p style="margin:0;color:var(--muted)">${props.State_Name||props.type||''}</p></div></div>`;
+    }
+
+    /***********************
+     *  Layer creation & toggle logic
+     ***********************/
+    const opacityEl = document.getElementById('opacity');
+    const colorToggle = document.getElementById('colorToggle');
+    const borderToggle = document.getElementById('borderToggle');
+    const roadsToggle = document.getElementById('roadsToggle');
+    const locationsToggle = document.getElementById('locationsToggle');
+    const citiesToggle = document.getElementById('citiesToggle');
+
+    const geoLayer = L.geoJSON(geojson, {
+      renderer: svgRenderer,
+      style: baseStyle,
+      onEachFeature: function(feature, layer){
+        const p = feature.properties || {};
+        const tooltipHtml = `<div style="display:flex;align-items:center"><div style="line-height:1.05;"><div style="font-weight:700;color:var(--text);">${p.Dist_Name || 'District'}</div><div style="font-size:11px;color:var(--muted)">${p.State_Name || ''}</div></div></div>`;
+        layer.bindTooltip(tooltipHtml, { className: 'nice-tooltip', direction: 'top', offset: [0, -8], opacity: 0.95 });
+
+        layer.on({
+          mouseover(e){
+            const l = e.target;
+            const showColors = colorToggle.checked;
+            const showBorders = borderToggle.checked;
+            const name = l.feature && (l.feature.properties && (l.feature.properties.Dist_Name || l.feature.properties.name));
+            const color = getColorByName(name);
+            const fillOpacity = showColors ? 0.7 : 0;
+            const strokeOpacity = showBorders ? 0.95 : 0;
+            const strokeColor = showBorders ? BASE_BORDER_COLOR : 'transparent';
+            const weight = showBorders ? 6 : 0;
+            try{
+              l.setStyle({ weight, fillColor: color, fillOpacity, color: strokeColor, opacity: strokeOpacity });
+              const el = l.getElement && l.getElement();
+              if(el){
+                el.setAttribute('fill', showColors ? color : 'transparent');
+                el.setAttribute('fill-opacity', String(fillOpacity));
+                el.setAttribute('stroke-opacity', String(strokeOpacity));
+                el.setAttribute('stroke', strokeColor);
+                el.setAttribute('stroke-width', weight + 'px');
+                el.setAttribute('tabindex','-1'); el.setAttribute('focusable','false');
+                el.style.outline='none'; el.style.boxShadow='none';
+              }
+            }catch(e){}
+            if(!L.Browser.ie && !L.Browser.opera && !L.Browser.edge){ l.bringToFront(); }
+            showInfo(feature.properties);
+          },
+          mouseout(e){
+            updateLayerDisplay(e.target);
+            showInfo();
+          },
+          click(e){
+            map.flyToBounds(e.target.getBounds(), {padding:[30,30], duration:0.9});
+            if(e.target.openPopup) e.target.openPopup();
+          }
+        });
+
+        setTimeout(()=> updateLayerDisplay(layer), 0);
+      }
+    }).addTo(map);
+
+    // roads layer will be created from Overpass (OSM) — see code further down
+    let roadsLayer = null;
+
+    let locationsLayer = null;
+    function createLocationsLayer(){
+      if(locationsLayer) return locationsLayer;
+      locationsLayer = L.geoJSON(locationsGeoJSON, {
+        pointToLayer(feature, latlng){
+          const t = (feature.properties && feature.properties.type) || 'place';
+          return L.circleMarker(latlng, { radius:8, fill:true, fillOpacity:1, fillColor: (t==='airport'? '#ffcc00' : '#fff200'), color:'#111827', weight:1, opacity:0.95 });
+        },
+        onEachFeature(feature, layer){ const name = (feature.properties && feature.properties.name) || 'Location'; layer.bindPopup(`<strong>${name}</strong>`); }
+      });
+      return locationsLayer;
+    }
+
+    // === PANES: ensure roads < cities ===
+    // roadsPane below tooltip (650) and popup (700), above markers (600)
+    if(!map.getPane('roadsPane')){
+      map.createPane('roadsPane');
+      map.getPane('roadsPane').style.zIndex = 620; // CHANGED: was 650, keep below cities/tooltip
+      map.getPane('roadsPane').style.pointerEvents = 'auto';
+    }
+    // NEW: dedicated cities pane above roads
+    if(!map.getPane('citiesPane')){
+      map.createPane('citiesPane');
+      map.getPane('citiesPane').style.zIndex = 680; // above roads & tooltips; below popups(700)
+      map.getPane('citiesPane').style.pointerEvents = 'auto';
+    }
+
+    let citiesLayer = null;
+    function createCitiesLayer(){
+      if(citiesLayer) return citiesLayer;
+      citiesLayer = L.geoJSON(citiesGeoJSON, {
+        pane: 'citiesPane', // NEW: force into high z-index pane
+        pointToLayer(feature, latlng){
+          const name = (feature.properties && feature.properties.name) || '';
+          const iconHtml = `<div style="display:flex;flex-direction:column;align-items:center;font-size:12px;line-height:1;pointer-events:auto">
+                              <div style="background:rgba(7,17,158,0.95);color:white;padding:4px 6px;border-radius:12px;font-weight:700">${name}</div>
+                              <div style="width:10px;height:10px;border-radius:50%;background:rgba(245,158,11,0.95);margin-top:4px"></div>
+                            </div>`;
+          const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [70, 36], iconAnchor: [35, 36] });
+          // Optional: extra bump just in case
+          return L.marker(latlng, { icon, zIndexOffset: 1000 }); // NEW
+        },
+        onEachFeature(feature, layer){
+          const name = (feature.properties && feature.properties.name) || '';
+          const pop = (feature.properties && feature.properties.pop) ? `<br>Pop: ${feature.properties.pop}` : '';
+          layer.bindPopup(`<strong>${name}</strong>${pop}`);
+        }
+      });
+      return citiesLayer;
+    }
+
+    /***********************
+     *  Display & toggles helpers
+     ***********************/
+    function updateLayerDisplay(layer){
+      if(!layer || !layer.feature) return;
+      const showColor = colorToggle.checked;
+      const showBorder = borderToggle.checked;
+      const desiredFillOpacity = showColor ? parseFloat(opacityEl.value || 0.5) : 0;
+      const desiredStrokeOpacity = showBorder ? 0.95 : 0;
+      const name = layer.feature && (layer.feature.properties && (layer.feature.properties.Dist_Name || layer.feature.properties.DIST_NAME || layer.feature.properties.name)) || null;
+      const fillColor = showColor ? getColorByName(name) : 'transparent';
+      const strokeColor = showBorder ? BASE_BORDER_COLOR : 'transparent';
+      const weight = showBorder ? BASE_BORDER_WEIGHT : 0;
+
+      if(layer.setStyle) layer.setStyle({ fillColor, fillOpacity: desiredFillOpacity, color: strokeColor, opacity: desiredStrokeOpacity, weight });
+      const el = layer.getElement && layer.getElement();
+      if(el){
+        try{ el.setAttribute('fill', fillColor); }catch(e){}
+        try{ el.setAttribute('fill-opacity', String(desiredFillOpacity)); }catch(e){}
+        try{ el.setAttribute('stroke-opacity', String(desiredStrokeOpacity)); }catch(e){}
+        try{ el.setAttribute('stroke-width', weight + 'px'); }catch(e){}
+        if(!showBorder) try{ el.setAttribute('stroke', 'transparent'); }catch(e){}
+        else try{ el.setAttribute('stroke', BASE_BORDER_COLOR); }catch(e){}
+        try{ el.setAttribute('tabindex','-1'); el.setAttribute('focusable','false'); el.style.outline='none'; el.style.boxShadow='none'; }catch(e){}
+      }
+    }
+
+    function updateAllLayersDisplay(){
+      geoLayer.eachLayer(l => updateLayerDisplay(l));
+    }
+
+    colorToggle.addEventListener('change', ()=>{ document.getElementById('legendItems').style.display = colorToggle.checked ? 'block' : 'none'; updateAllLayersDisplay(); if(map.hasLayer(geoLayer)) geoLayer.bringToFront(); });
+    borderToggle.addEventListener('change', ()=>{ updateAllLayersDisplay(); if(map.hasLayer(geoLayer)) geoLayer.bringToFront(); });
+    opacityEl.addEventListener('input', ()=> geoLayer.eachLayer(l=> { l.options = l.options || {}; l.options.fillOpacity = parseFloat(opacityEl.value); updateLayerDisplay(l); }));
+
+    // roadsToggle listener will be attached later after Overpass code
+    locationsToggle.addEventListener('change', ()=>{
+      if(locationsToggle.checked) { createLocationsLayer().addTo(map); }
+      else if(locationsLayer) map.removeLayer(locationsLayer);
+      if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW: keep cities on top
+    });
+
+    citiesToggle.addEventListener('change', ()=>{
+      if(citiesToggle.checked) { createCitiesLayer().addTo(map); citiesLayer.bringToFront(); } // NEW: bringToFront
+      else if(citiesLayer) map.removeLayer(citiesLayer);
+    });
+
+    /***********************
+     *  Bounds, legend, search, misc
+     ***********************/
+    const bounds = geoLayer.getBounds();
+    if(bounds.isValid()){
+      map.fitBounds(bounds, {padding:[20,20]});
+      map.setMaxBounds(bounds.pad(0.15));
+      const minZoom = map.getBoundsZoom(bounds);
+      map.setMinZoom(minZoom);
+    } else {
+      map.setView([27.5,88.5], 8);
+    }
+
+    const legendEl = document.getElementById('legendItems');
+    Object.keys(districtColors).forEach(k=>{
+      const div = document.createElement('div'); div.className='legend-item'; div.innerHTML = `<div class="swatch" style="background:${districtColors[k]}"></div><div style="font-size:13px;color:var(--text)">${k}</div>`; legendEl.appendChild(div);
+    });
+
+    const basemapSelect = document.getElementById('basemapSelect');
+    basemapSelect.addEventListener('change', ()=>{
+      const val = basemapSelect.value;
+      [osm, satellite, gray].forEach(layer => { if(map.hasLayer(layer)) map.removeLayer(layer); });
+      if(val === 'osm') osm.addTo(map);
+      else if(val === 'sat') satellite.addTo(map);
+      else gray.addTo(map);
+
+      if(typeof roadsLayer !== 'undefined' && roadsLayer && map.hasLayer(roadsLayer)) roadsLayer.bringToFront();
+      if(typeof locationsLayer !== 'undefined' && locationsLayer && map.hasLayer(locationsLayer)) locationsLayer.bringToFront();
+      if(typeof citiesLayer !== 'undefined' && citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW
+      if(map.hasLayer(geoLayer)) geoLayer.bringToFront();
+
+      updateOverlayVisibility();
+    });
+
+    function updateOverlayVisibility(){ 
+      if(map.hasLayer(osmOverlay) && basemapSelect.value !== 'sat'){ map.removeLayer(osmOverlay); }
+    }
+
+    document.getElementById('zoomToAll').addEventListener('click', ()=>{ if(bounds.isValid()) map.flyToBounds(bounds, {padding:[30,30], duration: 1.2}); });
+    document.getElementById('streetView').addEventListener('click', ()=>{ const c = bounds.getCenter(); const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c.lat},${c.lng}`; window.open(url,'_blank'); });
+
+    /***********************
+     *  SIKKIM-ONLY GEOCODING (Nominatim)
+     ***********************/
+    const searchBtn = document.getElementById('searchBtn');
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const searchLayer = L.layerGroup().addTo(map);
+
+    // Sikkim approximate bounding box (minLon, minLat, maxLon, maxLat)
+    const SIKKIM_BBOX = {
+      minLon: 87.8,
+      minLat: 26.8,
+      maxLon: 88.95,
+      maxLat: 28.2
+    };
+
+    async function geocode(q){
+      if(!q||!q.trim()) return [];
+      const vb = `${SIKKIM_BBOX.minLon},${SIKKIM_BBOX.minLat},${SIKKIM_BBOX.maxLon},${SIKKIM_BBOX.maxLat}`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=10&viewbox=${vb}&bounded=1&countrycodes=in&q=${encodeURIComponent(q)}`;
+      try{
+        const res = await fetch(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'SikkimGeoJSON/1.0 (your-email@example.com)' }});
+        if(!res.ok) return [];
+        const data = await res.json();
+        return data || [];
+      }catch(e){
+        console.warn('geocode error', e);
+        return [];
+      }
+    }
+
+    function clearResults(){ searchResults.innerHTML=''; searchResults.style.display='none'; }
+    function showResults(list){
+      searchResults.innerHTML='';
+
+      const filtered = (list || []).filter(item=>{
+        if(!item) return false;
+        if(item.address && (item.address.state === 'Sikkim' || (item.address.state && item.address.state.toLowerCase().includes('sikkim')))) return true;
+        if(item.display_name && item.display_name.toLowerCase().includes('sikkim')) return true;
+        return false;
+      });
+
+      if(!filtered.length){
+        searchResults.innerHTML = `<div style="padding:8px;color:var(--muted)">No results found inside <strong>Sikkim</strong>. Try a different query.</div>`;
+        searchResults.style.display='block';
+        return;
+      }
+
+      filtered.forEach(item=>{
+        const div = document.createElement('div');
+        div.style.padding='8px';
+        div.style.borderBottom='1px solid rgba(255,255,255,0.03)';
+        const shortName = (item.display_name || '').replace(/,?\s*India.*$/i, '');
+        div.innerHTML = `<strong style="color:var(--text)">${shortName}</strong><br><small style="color:var(--muted)">${item.type} • ${item.class}</small>`;
+        div.addEventListener('click', ()=> selectResult(item));
+        searchResults.appendChild(div);
+      });
+      searchResults.style.display='block';
+    }
+
+    async function selectResult(item){
+      clearResults();
+      searchInput.value = item.display_name || '';
+      searchLayer.clearLayers();
+
+      if(!(item.address && (item.address.state === 'Sikkim' || (item.address.state && item.address.state.toLowerCase().includes('sikkim'))) || (item.display_name && item.display_name.toLowerCase().includes('sikkim')))){
+        alert('That place does not appear to be inside Sikkim.');
+        return;
+      }
+
+      const lat = parseFloat(item.lat), lon = parseFloat(item.lon);
+      if(item.boundingbox && item.boundingbox.length===4){
+        const b = item.boundingbox.map(v=>parseFloat(v));
+        const south = Math.min(b[0], b[1]);
+        const north = Math.max(b[0], b[1]);
+        const west  = Math.min(b[2], b[3]);
+        const east  = Math.max(b[2], b[3]);
+        const bb = L.latLngBounds([south, west],[north, east]);
+        if(Math.abs(north - south) < 0.0005 && Math.abs(east - west) < 0.0005){
+          map.setView([lat, lon], 15);
+        } else {
+          map.flyToBounds(bb, {padding:[30,30], duration: 0.9});
+        }
+      } else {
+        map.flyTo([lat, lon], 15, {duration:0.9});
+      }
+      const mk = L.marker([lat, lon]).addTo(searchLayer).bindPopup(`<strong>${item.display_name}</strong>`).openPopup();
+    }
+
+    searchBtn.addEventListener('click', async ()=>{
+      const q = searchInput.value;
+      if(!q.trim()) return;
+      searchResults.innerHTML = '<div style="padding:8px">Searching…</div>';
+      searchResults.style.display='block';
+      const results = await geocode(q);
+      showResults(results);
+    });
+
+    searchInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') { e.preventDefault(); searchBtn.click(); }});
+
+    /***********************
+     *  REAL ROADS: Overpass -> GeoJSON (MAJOR / NATIONAL FILTERS)
+     *  - Fetches ways with filtered "highway" tags inside SIKKIM_BBOX
+     *  - Converts Overpass JSON to GeoJSON and styles by highway class
+     ***********************/
+    // (roadsPane already created above)
+    let roadsLayer1 = null;
+    let roadsFetched = false;
+
+    const roadsFilterSelect = document.getElementById('roadsFilterSelect');
+
+    // simple highway -> stroke weight heuristic
+    const highwayWeight = (hw) => {
+      if(!hw) return 2;
+      if(['motorway','trunk','primary'].includes(hw)) return 6;
+      if(['secondary','tertiary'].includes(hw)) return 4;
+      if(['residential','unclassified','service','living_street'].includes(hw)) return 2;
+      return 3;
+    };
+
+    // color by highway class
+    function roadStyleByFeature(feature){
+      const hw = feature.properties && (feature.properties.highway || '').toString();
+      let color = 'rgba(245,158,11,0.95)';
+      if(/motorway/.test(hw)) color = 'rgba(220,53,69,0.95)';       // motorway - red
+      else if(/trunk/.test(hw)) color = 'rgba(255,140,0,0.95)';    // trunk - orange
+      else if(/primary/.test(hw)) color = 'rgba(255,215,0,0.95)';  // primary - yellow
+      else if(/secondary/.test(hw)) color = 'rgba(200,200,200,0.95)'; // secondary - light
+      const weight = highwayWeight(hw);
+      return { color, weight, opacity: 0.95, lineCap: 'round' };
+    }
+
+    // Overpass -> GeoJSON converter (expects 'geometry' present on way elements)
+    function overpassToGeoJSON(overpassJson){
+      if(!overpassJson || !Array.isArray(overpassJson.elements)) return { type:'FeatureCollection', features:[] };
+      const wayElements = overpassJson.elements.filter(el => el.type === 'way' && Array.isArray(el.geometry) && el.geometry.length);
+      const features = wayElements.map(way => {
+        const coords = way.geometry.map(g => [g.lon, g.lat]);
+        return {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: coords },
+          properties: Object.assign({}, way.tags || {}, { osmid: way.id })
+        };
+      });
+      return { type:'FeatureCollection', features };
+    }
+
+    function createRoadsLayerFromGeoJSON(geojsonData){
+      if(roadsLayer1){
+        try{ map.removeLayer(roadsLayer1); }catch(e){}
+        roadsLayer1 = null;
+      }
+      roadsLayer1 = L.geoJSON(geojsonData, {
+        pane: 'roadsPane',
+        style: roadStyleByFeature,
+        onEachFeature(feature, layer){
+          const name = feature.properties && (feature.properties.name || '');
+          const hw = feature.properties && (feature.properties.highway || '');
+          if(name || hw) layer.bindPopup(`<strong>${name || '(unnamed)'}</strong><br><small>${hw}</small>`);
+        }
+      });
+
+      if(roadsToggle.checked && roadsLayer1 && !map.hasLayer(roadsLayer1)) roadsLayer1.addTo(map);
+      if(roadsLayer1 && map.hasLayer(roadsLayer1)) roadsLayer1.bringToFront();
+      if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW: keep cities on top
+    }
+
+    // Overpass endpoints fallback (in case one is slow)
+    const OVERPASS_ENDPOINTS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://lz4.overpass-api.de/api/interpreter'
+    ];
+
+    async function tryPostOverpass(endpoint, body){
+      const resp = await fetch(endpoint, { method:'POST', body, headers: { 'Content-Type': 'text/plain; charset=UTF-8', 'Accept': 'application/json' }});
+      if(!resp.ok) throw new Error(`Overpass ${endpoint} returned ${resp.status}`);
+      return await resp.json();
+    }
+
+    async function fetchOSMRoads(){
+      const south = SIKKIM_BBOX.minLat, west = SIKKIM_BBOX.minLon, north = SIKKIM_BBOX.maxLat, east = SIKKIM_BBOX.maxLon;
+      const bbox = `${south},${west},${north},${east}`;
+
+      const mode = (roadsFilterSelect && roadsFilterSelect.value) ? roadsFilterSelect.value : 'major';
+
+      let query = '';
+      if(mode === 'national'){
+        query = `
+[out:json][timeout:60];
+(
+  way["highway"]["ref"~"^NH"](${bbox});
+  way["highway"]["name"~"\\bNational Highway\\b", i](${bbox});
+);
+out geom;
+`;
+      } else {
+        query = `
+[out:json][timeout:60];
+(
+  way["highway"~"^(motorway|trunk|primary|secondary|tertiary|motorway_link|trunk_link|primary_link|secondary_link)$"](${bbox});
+);
+out geom;
+`;
+      }
+
+      if(searchResults){
+        searchResults.innerHTML = '<div style="padding:8px">Loading road network… (Overpass)</div>';
+        searchResults.style.display = 'block';
+      }
+
+      let lastError = null;
+      for(const ep of OVERPASS_ENDPOINTS){
+        try{
+          const data = await tryPostOverpass(ep, query);
+          const geo = overpassToGeoJSON(data);
+          if(!geo || !geo.features || geo.features.length === 0){
+            lastError = new Error('No way geometries returned (empty feature list)');
+            continue;
+          }
+          createRoadsLayerFromGeoJSON(geo);
+          roadsFetched = true;
+          if(searchResults) clearResults();
+          return;
+        }catch(err){
+          console.warn(`Overpass fetch failed at ${ep}:`, err);
+          lastError = err;
+        }
+      }
+
+      console.error('All Overpass endpoints failed', lastError);
+      if(searchResults){
+        searchResults.innerHTML = `<div style="padding:8px;color:var(--muted)">Could not load roads: ${lastError && lastError.message ? lastError.message : 'unknown'}. Try again later.</div>`;
+        searchResults.style.display = 'block';
+      } else {
+        alert('Could not load OSM roads. Check console for details.');
+      }
+    }
+
+    async function ensureRoadsVisible(){
+      if(roadsToggle.checked){
+        if(roadsFetched && roadsLayer1 && roadsFilterSelect && roadsFilterSelect._lastMode === roadsFilterSelect.value){
+          if(!map.hasLayer(roadsLayer1)) roadsLayer1.addTo(map);
+          roadsLayer1.bringToFront();
+          if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW
+          return;
+        }
+        await fetchOSMRoads();
+        if(roadsLayer1 && !map.hasLayer(roadsLayer1)) roadsLayer1.addTo(map);
+        if(roadsLayer1 && map.hasLayer(roadsLayer1)) roadsLayer1.bringToFront();
+        if(citiesLayer && map.hasLayer(citiesLayer)) citiesLayer.bringToFront(); // NEW
+        if(roadsFilterSelect) roadsFilterSelect._lastMode = roadsFilterSelect.value;
+      } else {
+        if(roadsLayer1 && map.hasLayer(roadsLayer1)) map.removeLayer(roadsLayer1);
+      }
+    }
+
+    roadsToggle.addEventListener('change', ensureRoadsVisible);
+    if(roadsFilterSelect) roadsFilterSelect.addEventListener('change', async ()=>{
+      if(roadsToggle.checked){
+        roadsFetched = false;
+        await ensureRoadsVisible();
+      }
+    });
+
+    /***********************
+     *  Small animations & accessibility
+     ***********************/
+    function animateDistrictsStagger(){
+      let i = 0; geoLayer.eachLayer(layer=>{
+        try{
+          const el = layer.getElement && layer.getElement();
+          if(!el){ i++; return; }
+          el.style.transition = 'transform 420ms cubic-bezier(.2,.9,.22,1), fill-opacity 420ms ease, stroke-width 260ms ease';
+          el.style.transform = 'scale(.94)';
+          const initialFill = (layer.options && layer.options.fillOpacity != null) ? layer.options.fillOpacity : (colorToggle.checked ? parseFloat(opacityEl.value || 0.5) : 0);
+          el.setAttribute('fill-opacity', '0');
+          setTimeout(()=>{
+            const targetOpacity = initialFill;
+            el.style.transform = 'scale(1)';
+            el.setAttribute('fill-opacity', String(targetOpacity));
+            if(layer.options && layer.options.weight) el.setAttribute('stroke-width', (layer.options.weight + 'px'));
+            try{ el.setAttribute('tabindex','-1'); el.setAttribute('focusable','false'); el.style.outline='none'; el.style.boxShadow='none'; }catch(e){}
+          }, 140 + (i*90));
+        }catch(e){}
+        i++;
+      });
+    }
+    setTimeout(animateDistrictsStagger, 360);
+
+    updateOverlayVisibility();
+    document.getElementById('map').setAttribute('tabindex','0');
+  </script>
+</body>
+</html>

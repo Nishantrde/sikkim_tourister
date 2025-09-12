@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mini Sikkim Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html,body,#map{ height:100%; margin:0; font-family:Nunito,system-ui; }
+  #map{ width:100%; height:100vh; }
+  .info{ position:absolute; right:12px; top:12px; z-index:1000; padding:8px; background:rgba(3,6,23,0.8); color:#e6eef8; border-radius:8px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="info" id="info">Hover a district</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* small example GeoJSON (two demo polygons). Replace with full file later. */
+const geojson = {{ geojson|safe }}
+
+const map = L.map('map').setView([27.3, 88.3], 9);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+const infoEl = document.getElementById('info');
+function showInfo(p){ infoEl.innerText = p ? `${p.Dist_Name || p.name} — ${p.State_Name || ''}` : 'Hover a district'; }
+
+const colors = { 
+  'East District':   '#fff200',
+  'North  District':  '#07119e',   
+  'South District':  '#ff1b00',
+  'West District':   '#2ea043'
+ };
+function style(f){ return { color:'#000814', weight:3, fillColor: colors[f.properties.Dist_Name]||'#94a3b8', fillOpacity:0.5 }; }
+
+const geoLayer = L.geoJSON(geojson, {
+  style,
+  onEachFeature: (f, layer) => {
+    layer.on({
+      mouseover(e){
+        layer.setStyle({ fillOpacity:0.8, weight:5 });
+        showInfo(f.properties);
+        layer.bringToFront();
+      },
+      mouseout(){
+        geoLayer.resetStyle(layer);
+        showInfo(null);
+      },
+      click(){ map.fitBounds(layer.getBounds(), {padding:[20,20]}); }
+    });
+  }
+}).addTo(map);
+
+map.fitBounds(geoLayer.getBounds(), {padding:[20,20]});
+</script>
+</body>
+</html>

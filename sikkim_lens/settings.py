@@ -73,18 +73,19 @@ WSGI_APPLICATION = 'sikkim_lens.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-import dj_database_url
-
-# Postgress
 DATABASES = {
-    'default':dj_database_url.parse('postgresql://sikkim_tour_user:Zd4relrYWpJtVdUyLZWPuiZtZB0t4GR7@dpg-d2uhm6ur433s73eafjj0-a.singapore-postgres.render.com/sikkim_tour')
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
+
+# import dj_database_url
+
+# # Postgress
+# DATABASES = {
+#     'default':dj_database_url.parse('postgresql://sikkim_tour_user:Zd4relrYWpJtVdUyLZWPuiZtZB0t4GR7@dpg-d2uhm6ur433s73eafjj0-a.singapore-postgres.render.com/sikkim_tour')
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
