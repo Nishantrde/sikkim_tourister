@@ -651,7 +651,7 @@
       // create marker and popup with an explicit hyperlink
       const marker = L.marker([lat, lon], { title: 'Open Panorama (external)' }).addTo(map);
       // Use a safe, explicit link opening in a new tab
-      const popupHtml = `<strong>Panorama (external)</strong><div style="margin-top:6px;font-size:13px;color:${getComputedStyle(document.documentElement).getPropertyValue('--muted')}">Open the panoramic viewer at:</div><div style="margin-top:8px"><a href="http://127.0.0.1:8000/pan" target="_blank" rel="noopener noreferrer">http://127.0.0.1:8000/pan</a></div>`;
+      const popupHtml = `<strong>Panorama (external)</strong><div style="margin-top:6px;font-size:13px;color:${getComputedStyle(document.documentElement).getPropertyValue('--muted')}">Open the panoramic viewer at:</div><div style="margin-top:8px"><a href="/pan" target="_blank" rel="noopener noreferrer">Panoramic View</a></div>`;
       marker.bindPopup(popupHtml, {maxWidth:380});
       // optional: on click also open the link directly in new tab (uncomment if desired)
       // marker.on('click', ()=> window.open('http://127.0.0.1:8000/pan', '_blank', 'noopener'));
