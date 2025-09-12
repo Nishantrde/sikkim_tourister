@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Discover Sikkim — Sacred Monasteries & Festivals (Blue/Yellow/Red)</title>
+  <title>Journey Through Sikkim — Sacred Monasteries & Festivals</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700;800&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
@@ -11,10 +11,10 @@
   <style>
     :root{
       --bg: rgb(243,248,255);
-      --deep-blue: rgb(11,87,164);     /* rgb(11,87,164) */
+      --deep-blue: rgb(11,87,164);
       --mid-blue: rgb(43,138,214);
-      --accent-yellow: rgb(255,210,74);/* rgb(255,210,74) */
-      --accent-red: rgb(226,59,59);    /* rgb(226,59,59) */
+      --accent-yellow: rgb(255,210,74);
+      --accent-red: rgb(226,59,59);
       --card: rgba(255,255,255,0.98);
       --muted: rgba(247,249,255,1);
       --shadow: 0 20px 50px rgba(6,18,40,0.08);
@@ -22,11 +22,13 @@
 
     /* animations */
     @keyframes headerShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-    @keyframes pulse { 0%{ transform: scale(1); opacity:1 } 50%{ transform:scale(1.12); opacity:.88 } 100%{ transform:scale(1); opacity:1 } }
+    @keyframes pulse { 0%{ transform: scale(1); opacity:1 } 50%{ transform:scale(1.08); opacity:.88 } 100%{ transform:scale(1); opacity:1 } }
     @keyframes bounce { 0%{ transform: translateY(0) } 30%{ transform: translateY(-12px) } 60%{ transform:translateY(4px) } 100%{ transform:translateY(0) } }
     @keyframes fadeInUp { 0%{ opacity:0; transform: translateY(8px);} 100%{ opacity:1; transform:translateY(0);} }
     @keyframes slideIn { 0%{ opacity:0; transform: translateX(12px);} 100%{ opacity:1; transform:translateX(0);} }
     @keyframes badgePulse { 0%{ transform: scale(1)} 50%{ transform: scale(1.08)} 100%{ transform:scale(1)} }
+    @keyframes floaty { 0% { transform: translateY(0) } 50% { transform: translateY(-10px) } 100% { transform: translateY(0) } }
+    @keyframes glow { 0%{ box-shadow:0 6px 20px rgba(11,87,164,0.06)} 50%{ box-shadow:0 18px 36px rgba(11,87,164,0.12)} 100%{ box-shadow:0 6px 20px rgba(11,87,164,0.06)} }
 
     *{box-sizing:border-box}
     body{margin:0;font-family:Nunito,system-ui,Arial;background:linear-gradient(180deg,var(--bg),#f8fbff);color:#072117; -webkit-font-smoothing:antialiased}
@@ -50,15 +52,15 @@
     nav{margin-left:auto}
     nav a{color:white;text-decoration:none;margin-left:12px;font-weight:700;opacity:0.95}
 
-    .hero{max-width:1200px;margin:1.4rem auto;padding:1.2rem;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.95),rgba(255,255,255,0.98));box-shadow:var(--shadow);display:grid;grid-template-columns:1fr 420px;gap:1rem;animation:fadeInUp .6s ease both}
-    .hero h1{font-family:'Playfair Display',serif;margin:0;font-size:2rem;color:var(--deep-blue)}
-    .hero p{margin-top:0.6rem;opacity:0.9}
+    .hero{max-width:1200px;margin:1.4rem auto;padding:1.2rem;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.95),rgba(255,255,255,0.98));box-shadow:var(--shadow);display:grid;grid-template-columns:1fr 420px;gap:1rem;animation:fadeInUp .6s ease both;position:relative;overflow:visible}
+    .hero h1{font-family:'Playfair Display',serif;margin:0;font-size:2rem;color:var(--deep-blue);line-height:1.05}
+    .hero p{margin-top:0.6rem;opacity:0.95}
     .cta{margin-top:1rem;display:flex;gap:0.6rem}
     .btn-primary{background:linear-gradient(90deg,var(--mid-blue),var(--deep-blue));color:white;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(11,87,164,0.12);transition:transform .18s}
     .btn-primary:hover{transform:translateY(-3px)}
     .btn-ghost{background:transparent;border:1px solid rgba(6,20,14,0.06);padding:8px 12px;border-radius:10px}
 
-    .map-card{border-radius:12px;overflow:hidden;height:420px;box-shadow:0 10px 30px rgba(11,87,164,0.06)}
+    .map-card{border-radius:12px;overflow:hidden;height:420px;box-shadow:0 10px 30px rgba(11,87,164,0.06);position:relative}
     #map{width:100%;height:100%}
 
     main.content{max-width:1200px;margin:1rem auto;padding:0 1rem}
@@ -94,7 +96,8 @@
     .why .item{background:#fff;padding:0.6rem;border-radius:8px;flex:1;border-left:6px solid var(--accent-yellow)}
 
     .fest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.8rem;margin-top:0.8rem}
-    .fest-card{background:var(--card);padding:0.8rem;border-radius:10px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+    .fest-card{background:var(--card);padding:0.8rem;border-radius:10px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .28s,box-shadow .28s}
+    .fest-card:hover{transform:translateY(-6px) rotate(-0.6deg); box-shadow:0 20px 45px rgba(11,87,164,0.08)}
     .fest-card h3{margin:0 0 6px 0}
 
     .badge{position:absolute;top:12px;right:12px;padding:6px 10px;border-radius:999px;font-weight:800;font-size:0.9rem}
@@ -117,19 +120,33 @@
     .pulse-yellow{background:var(--accent-yellow); animation:pulse 2.4s infinite}
     .pulse-blue{background:var(--mid-blue); animation:pulse 2.8s infinite}
     .pulse-marker.bounce{ animation: bounce .7s cubic-bezier(.2,.9,.2,1) both }
+
+    /* decorative floats */
+    .shape { position:absolute; border-radius:12px; opacity:0.12; filter:blur(6px); animation:floaty 6s ease-in-out infinite; }
+    .shape.s1{ width:220px;height:100px; right:42px; top:-10px; background:linear-gradient(90deg, rgba(255,210,74,1), rgba(43,138,214,1)); transform:rotate(8deg) }
+    .shape.s2{ width:160px;height:160px; left:-30px; bottom:-30px; background:linear-gradient(90deg, rgba(11,87,164,1), rgba(226,59,59,1)); transform:rotate(-10deg); animation-duration:8s }
+
+    /* reveal helper for staggered items */
+    .reveal{ opacity:0; transform:translateY(8px); animation:fadeInUp .45s ease forwards }
+
+    /* subtle map glow */
+    .map-card::after{ content:''; position:absolute; inset:auto -20px -20px -20px; pointer-events:none; border-radius:14px; box-shadow:0 18px 50px rgba(11,87,164,0.06); transform:rotate(0deg); opacity:0.9 }
+
+    /* nicer gradient heading text */
+    .gradient-title{ background: linear-gradient(90deg,var(--mid-blue),var(--deep-blue)); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800 }
+
   </style>
 </head>
 <body>
   <header>
     <div class="wrap">
-      <!-- replaced SVG with a simple img using the Cloudinary logo you provided -->
       <div class="logo" aria-hidden="true">
         <img src="https://res.cloudinary.com/dlychx4cg/image/upload/v1757702367/logo_z1lzlb.jpg" alt="Discover Sikkim logo">
       </div>
 
       <div>
         <div style="font-weight:800">Discover Sikkim</div>
-        <div style="font-size:0.86rem;opacity:0.95">Sacred monasteries, cultural history & festival guide</div>
+        <div style="font-size:0.86rem;opacity:0.95">Sacred monasteries • Living festivals • Himalayan views</div>
       </div>
 
       <nav>
@@ -143,15 +160,17 @@
 
   <section class="hero">
     <div>
-      <h1>Explore Sikkim’s Sacred Monasteries</h1>
-      <p>Blue / Yellow / Red theme — upcoming festivals are highlighted on the map and in the festival cards. Dates are approximate; Tibetan-lunar dates shift every year.</p>
+      <h1 class="gradient-title">Journey through Sikkim — Monasteries, Masks & Mountain Light</h1>
+      <p>Explore centuries-old gompas, vibrant masked dances and pilgrimage routes. Dates shown are approximate (Tibetan-lunar timing shifts each year); badges highlight events happening soon.</p>
       <div class="cta">
-        <button class="btn-primary" onclick="document.getElementById('monasteries').scrollIntoView({behavior:'smooth'})">Discover Monasteries</button>
-        <button class="btn-ghost" onclick="document.getElementById('festivals').scrollIntoView({behavior:'smooth'})">View Festivals</button>
+        <button class="btn-primary" onclick="document.getElementById('monasteries').scrollIntoView({behavior:'smooth'})">Browse Monasteries</button>
+        <button class="btn-ghost" onclick="document.getElementById('festivals').scrollIntoView({behavior:'smooth'})">See Festival Calendar</button>
       </div>
     </div>
 
     <div class="map-card card-big">
+      <div class="shape s1" aria-hidden="true"></div>
+      <div class="shape s2" aria-hidden="true"></div>
       <div id="map"></div>
     </div>
   </section>
@@ -159,7 +178,7 @@
   <main class="content">
     <div class="grid">
       <aside class="panel-card">
-        <div class="search"><input id="search" placeholder="Search monastery or keyword..." /><button class="chip" id="reset">Reset</button></div>
+        <div class="search"><input id="search" placeholder="Search monastery, town or ritual (e.g. 'Chaam')..." /><button class="chip" id="reset">Reset</button></div>
         <div class="chips" style="margin-top:0.6rem">
           <div class="chip" data-filter="all">All</div>
           <div class="chip" data-filter="historic">Historic</div>
@@ -173,18 +192,17 @@
         <div id="monasteries" class="card-big details">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <h2 style="margin:0">Monasteries</h2>
-            <div style="opacity:0.85">Click a monastery to view history, festivals & galleries</div>
+            <div style="opacity:0.85">Click a monastery to view history, festival notes & photo galleries</div>
           </div>
           <div id="detail-area" style="margin-top:0.8rem"></div>
         </div>
 
         <div id="festivals" style="margin-top:1rem">
           <h2>Festivals</h2>
-          <p style="opacity:0.9">Major festivals of Sikkim, approximate timing (by month), and main monasteries. This view highlights which ones are coming up soon.</p>
+          <p style="opacity:0.9">Major festivals of Sikkim and typical timing. Badges show how soon an event is — handy when planning a visit.</p>
           <div class="fest-grid" id="fest-grid"></div>
         </div>
 
-        
       </section>
     </div>
   </main>
@@ -202,7 +220,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    // --- Data (your GeoJSON + meta + events) - unchanged
+    // --- Data (unchanged) ---
     const data = {
       "type": "FeatureCollection",
       "features": [
@@ -331,7 +349,8 @@
         else if(nearestDays <= 90) badgeHtml = `<span class="mini-badge mini-yellow">${nearestDays}d</span>`;
         else badgeHtml = `<span class="mini-badge mini-blue">${nearestDays}d</span>`;
       }
-      const el = document.createElement('div'); el.className='item';
+      const el = document.createElement('div'); el.className='item reveal';
+      el.style.animationDelay = (idx * 80) + 'ms'; // staggered entrance
       el.innerHTML = `<img class='thumb' src='${p.images[0]}' alt='${p.name}'/>
                       <div style="flex:1">
                         <div style="display:flex;align-items:center;justify-content:space-between">
@@ -418,12 +437,13 @@
 
     // render festivals grid with badges showing days-until
     const festGrid = document.getElementById('fest-grid');
-    events.forEach(ev => {
+    events.forEach((ev, i) => {
       const days = daysUntilNext(ev.approxMonths);
       let badgeClass = 'blue';
       if(days <= 14) badgeClass = 'red';
       else if(days <= 90) badgeClass = 'yellow';
-      const d = document.createElement('div'); d.className='fest-card';
+      const d = document.createElement('div'); d.className='fest-card reveal';
+      d.style.animationDelay = (i * 80) + 'ms';
       d.innerHTML = `<div style="position:relative"><h3>${ev.title}</h3><div style='opacity:0.85;margin-top:6px'>Where: ${ev.where}</div><div style='opacity:0.85'>Typical time: ${ev.when}</div><div style='opacity:0.85'>Monasteries: ${ev.monasteries.join(', ')}</div><p style='margin-top:0.6rem'>${ev.details}</p></div>`;
       const badge = document.createElement('div'); badge.className = `badge ${badgeClass}`;
       badge.textContent = days === Infinity ? 'No date' : days <= 0 ? 'Happening now' : `In ${days}d`;
@@ -443,6 +463,11 @@
     // default: show first monastery details
     if(data.features && data.features.length) showDetail(data.features[0].properties, data.features[0].geometry.coordinates);
     document.querySelectorAll('.chip')[0].classList.add('active');
+
+    // small accessibility + interaction improvements
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape') closeLight();
+    });
   </script>
 </body>
 </html>
