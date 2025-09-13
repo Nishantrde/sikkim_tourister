@@ -636,28 +636,25 @@
      * Single random marker that links to your external panorama URL.
      * This replaces the previous embedded panorama: clicking the marker opens
      * http://127.0.0.1:8000/pan in a new tab.
+     *
+     * MODIFIED: place the marker at Gangtok (fixed coordinates) instead of a
+     * fully random location. Coordinates used: lat: 27.3389, lon: 88.6065
      **************************************************************************/
-    function randomInRange(min, max){ return Math.random() * (max - min) + min; }
     function addRandomPanoramaLinkMarker(){
-      // bounds fallback to SIKKIM_BBOX if district bounds invalid
-      let minLon = SIKKIM_BBOX[0], minLat = SIKKIM_BBOX[1], maxLon = SIKKIM_BBOX[2], maxLat = SIKKIM_BBOX[3];
-      if(bounds && bounds.isValid()){
-        const b = bounds;
-        minLat = b.getSouth(); maxLat = b.getNorth(); minLon = b.getWest(); maxLon = b.getEast();
-      }
-      const lon = randomInRange(minLon, maxLon);
-      const lat = randomInRange(minLat, maxLat);
+      // Gangtok center coordinates (fixed)
+      const gangtokLat = 27.3389;
+      const gangtokLon = 88.6065;
 
       // create marker and popup with an explicit hyperlink
-      const marker = L.marker([lat, lon], { title: 'Open Panorama (external)' }).addTo(map);
+      const marker = L.marker([gangtokLat, gangtokLon], { title: 'Panorama (Gangtok)' }).addTo(map);
       // Use a safe, explicit link opening in a new tab
-      const popupHtml = `<strong>Panorama (external)</strong><div style="margin-top:6px;font-size:13px;color:${getComputedStyle(document.documentElement).getPropertyValue('--muted')}">Open the panoramic viewer at:</div><div style="margin-top:8px"><a href="/pan" target="_blank" rel="noopener noreferrer">Panoramic View</a></div>`;
+      const popupHtml = `<strong>Panorama — Gangtok</strong><div style="margin-top:6px;font-size:13px;color:${getComputedStyle(document.documentElement).getPropertyValue('--muted')}">Open the panoramic viewer for Gangtok at:</div><div style="margin-top:8px"><a href="/pan" target="_blank" rel="noopener noreferrer">Panoramic View (Gangtok)</a></div>`;
       marker.bindPopup(popupHtml, {maxWidth:380});
-      // optional: on click also open the link directly in new tab (uncomment if desired)
-      // marker.on('click', ()=> window.open('http://127.0.0.1:8000/pan', '_blank', 'noopener'));
+      // optional: on click also open the link directly in new tab
+      // marker.on('click', ()=> window.open('/pan', '_blank', 'noopener'));
     }
 
-    // add the single random link marker on map load (small timeout to allow fitBounds)
+    // add the Gangtok panorama marker on map load (small timeout to allow fitBounds)
     setTimeout(()=> addRandomPanoramaLinkMarker(), 250);
 
     /***** initial sync of layers (if toggles were checked) *****/

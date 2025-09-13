@@ -135,6 +135,23 @@
     /* nicer gradient heading text */
     .gradient-title{ background: linear-gradient(90deg,var(--mid-blue),var(--deep-blue)); -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:800 }
 
+    /* CHATBOT STYLES */
+    .chat-toggle{position:fixed;right:22px;bottom:22px;width:62px;height:62px;border-radius:999px;background:linear-gradient(90deg,var(--mid-blue),var(--deep-blue));color:white;display:flex;align-items:center;justify-content:center;box-shadow:0 20px 40px rgba(11,87,164,0.18);cursor:pointer;z-index:999}
+    .chat-panel{position:fixed;right:22px;bottom:100px;width:360px;max-width:calc(100% - 48px);height:520px;background:var(--card);border-radius:12px;box-shadow:0 30px 70px rgba(6,12,40,0.12);overflow:hidden;display:flex;flex-direction:column;z-index:999}
+    .chat-header{padding:12px 14px;background:linear-gradient(90deg,var(--mid-blue),var(--deep-blue));color:white;display:flex;align-items:center;gap:10px}
+    .chat-body{flex:1;padding:12px;overflow:auto;background:linear-gradient(180deg,rgba(243,248,255,0.7),transparent)}
+    .chat-input{display:flex;padding:10px;border-top:1px solid rgba(6,20,14,0.06)}
+    .chat-input input{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(6,20,14,0.06)}
+    .chat-input button{margin-left:8px;padding:10px 12px;border-radius:10px;border:none;background:linear-gradient(90deg,var(--mid-blue),var(--deep-blue));color:white;cursor:pointer}
+    .msg{margin-bottom:10px;display:flex}
+    .msg.bot .bubble{background:#fff;padding:10px;border-radius:10px;box-shadow:var(--shadow);max-width:78%}
+    .msg.user{justify-content:flex-end}
+    .msg.user .bubble{background:linear-gradient(90deg,var(--mid-blue),var(--deep-blue));color:white;padding:10px;border-radius:10px;max-width:78%}
+    .msg small{display:block;opacity:0.7;margin-bottom:6px}
+    .chat-footer-note{padding:8px;font-size:0.85rem;color:rgba(6,20,14,0.65);text-align:center}
+
+    .chat-suggestion{display:inline-block;padding:6px 8px;border-radius:999px;background:var(--muted);margin-right:6px;margin-bottom:6px;cursor:pointer}
+
   </style>
 </head>
 <body>
@@ -208,6 +225,31 @@
   </main>
 
   <footer>© Discover Sikkim — Built for demo • Images provided by site owner.</footer>
+
+  <!-- CHATBOT TOGGLE + PANEL -->
+  <div class="chat-toggle" id="chatToggle" title="Ask about Sikkim">
+    💬
+  </div>
+  <div class="chat-panel" id="chatPanel" style="display:none">
+    <div class="chat-header">
+      <div style="font-weight:800">Sikkim Chatbot</div>
+      <div style="margin-left:auto;opacity:0.9;cursor:pointer" id="closeChat">✕</div>
+    </div>
+    <div class="chat-body" id="chatBody">
+      <div style="padding:8px"><small>Ask me anything about Sikkim — monasteries, festivals, where to go, or show a place on the map.</small></div>
+      <div style="padding:8px">
+        <div class="chat-suggestion" data-q="Where is Rumtek Monastery?">Where is Rumtek Monastery?</div>
+        <div class="chat-suggestion" data-q="Tell me about Pang Lhabsol">Tell me about Pang Lhabsol</div>
+        
+      </div>
+      <div id="msgs"></div>
+    </div>
+    <div class="chat-input">
+      <input id="chatInput" placeholder="Type your question e.g. 'Tell me about Enchey'" />
+      <button id="sendBtn">Ask</button>
+    </div>
+    <div class="chat-footer-note">Answers are based on the site's guide data. For live updates, try the 'Search web' option shown when needed.</div>
+  </div>
 
   <!-- lightbox -->
   <div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(6,12,10,0.7);align-items:center;justify-content:center;z-index:9999">
@@ -324,7 +366,7 @@
       else if(nearestDays <= 90) colorClass='pulse-yellow';
 
       const myIcon = L.divIcon({className: 'custom-div-icon', html:`<div class="pulse-marker ${colorClass}" title="${p.name}"></div>`, iconSize:[24,24], iconAnchor:[12,12]});
-      const marker = L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]],{icon:myIcon}).addTo(map);
+      const marker = L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]],[false],{icon:myIcon}).addTo(map);
       marker.bindTooltip(p.name,{direction:'top',offset:[0,-14]});
 
       // marker click: bounce + open detail
@@ -468,6 +510,113 @@
     document.addEventListener('keydown', (e) => {
       if(e.key === 'Escape') closeLight();
     });
+
+    /* ------------------ CHATBOT LOGIC ------------------ */
+    const chatToggle = document.getElementById('chatToggle');
+    const chatPanel = document.getElementById('chatPanel');
+    const closeChat = document.getElementById('closeChat');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatInput = document.getElementById('chatInput');
+    const msgs = document.getElementById('msgs');
+
+    chatToggle.addEventListener('click', ()=>{ chatPanel.style.display='flex'; chatToggle.style.display='none'; appendBotMessage("Hi — I'm the Sikkim guide bot. Ask me about monasteries, festivals, or say 'show on map' after a place name to view it."); });
+    closeChat.addEventListener('click', ()=>{ chatPanel.style.display='none'; chatToggle.style.display='flex'; });
+
+    // suggestion quick clicks
+    document.querySelectorAll('.chat-suggestion').forEach(el=> el.addEventListener('click', ()=>{ const q = el.dataset.q; chatInput.value = q; handleSend(); }));
+
+    sendBtn.addEventListener('click', handleSend);
+    chatInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') handleSend(); });
+
+    function appendUserMessage(text){
+      const d = document.createElement('div'); d.className='msg user'; d.innerHTML = `<div class='bubble'>${escapeHtml(text)}</div>`; msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; }
+    function appendBotMessage(html){
+      const d = document.createElement('div'); d.className='msg bot'; d.innerHTML = `<div class='bubble'>${html}</div>`; msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; }
+
+    function handleSend(){
+      const q = chatInput.value.trim(); if(!q) return; appendUserMessage(q); chatInput.value='';
+      // small delay to feel natural
+      setTimeout(()=>{ const reply = generateReply(q); appendBotMessage(reply); }, 350);
+    }
+
+    // basic helper to escape HTML in user text
+    function escapeHtml(str){ return (str+'').replace(/[&"'<>]/g, function (s) { return ({'&':'&amp;','"':'&quot;',"'":"&#39;",'<':'&lt;','>':'&gt;'}[s]); }); }
+
+    // generate reply using the local dataset (meta, events, data)
+    function generateReply(q){
+      const orig = q.trim(); const ql = q.toLowerCase();
+
+      // quick intent: greetings
+      if(/\b(hi|hello|namaste|hey|greetings)\b/.test(ql)) return `Hello — I'm your Sikkim guide. Try asking about a monastery (e.g. "Tell me about Rumtek"), a festival ("When is Bumchu?"), or say "show on map Rumtek" to open it.`;
+      if(/\b(thanks|thank you)\b/.test(ql)) return `You're welcome — happy to help! If you want directions, ask "how to reach <place>".`;
+
+      // check for "show on map" intent
+      const showMatch = ql.match(/show on map\s+([\w\s\(\)\-]+)/);
+      if(showMatch){ const name = showMatch[1].trim(); const found = findMonasteryByName(name); if(found) { map.setView([found.coords[1], found.coords[0]],13); showDetail(found.props, [found.coords[0], found.coords[1]]); return `Showing <strong>${found.props.name}</strong> on the map.`; } else return `I couldn't find "${escapeHtml(name)}" — try the exact monastery name like "Rumtek" or use the list.`; }
+
+      // direct match for monastery names
+      const m = findMonasteryByName(ql) || findMonasteryByPartial(ql);
+      if(m){ const p = meta[m.props.name] || {}; let s = `<strong>${m.props.name}</strong><div style="margin-top:6px">${p.hero || m.props.desc || ''}</div>`;
+        if(p.history) s += `<div style="margin-top:8px"><strong>History:</strong><div>${p.history}</div></div>`;
+        if(p.festivals && p.festivals.length) s += `<div style="margin-top:8px"><strong>Festivals:</strong><ul style='margin:6px 0 0 1rem;padding:0'>${p.festivals.map(f=>`<li>${f.name} — ${f.typicalWhen || ''}</li>`).join('')}</ul></div>`;
+        s += `<div style="margin-top:8px"><button class='chip' onclick="map.setView([${m.coords[1]}, ${m.coords[0]}],13); showDetail(${JSON.stringify(m.props).replace(/</g,'\\u003c')}, [${m.coords[0]}, ${m.coords[1]}])">Show on map</button></div>`;
+        return s; }
+
+      // festival match
+      const fest = events.find(ev => ql.includes(ev.title.toLowerCase()) || ev.monasteries.some(mn => ql.includes(mn.toLowerCase())));
+      if(fest){ const days = daysUntilNext(fest.approxMonths); const whenText = days===Infinity? fest.when : (days<=0? 'Happening now' : `In ${days} days`);
+        return `<strong>${fest.title}</strong><div style='margin-top:6px'>Typical timing: ${fest.when}</div><div style='margin-top:6px'>${fest.details}</div><div style='margin-top:8px'><em>${whenText}</em></div>`; }
+
+      // fuzzy search across corpus
+      const corpus = buildCorpus();
+      const scores = corpus.map(item => {
+        const score = overlapScore(ql, item.text);
+        return {score, item};
+      }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+      if(scores.length){
+        // return top 2 matches
+        const top = scores.slice(0,2).map(s=> `<div style="margin-bottom:8px"><strong>${escapeHtml(s.item.title)}</strong><div style='margin-top:6px'>${escapeHtml(s.item.snippet)}</div><div style='margin-top:6px'></div></div>` ).join('');
+        return `<div>Here are things I found that match your question:</div><div style='margin-top:8px'>${top}</div><div style='margin-top:6px;color:rgba(6,20,14,0.6)'>If this doesn't answer it, try phrasing differently (e.g. "How to reach Rumtek" / "What is Bumchu?").</div>`;
+      }
+
+      // fallback — offer web search link
+      const url = 'https://www.google.com/search?q=' + encodeURIComponent(orig + ' Sikkim');
+      return `I don't have a confident answer in the guide. You can try a web search: <a href="${url}" target="_blank" rel="noopener">Search the web for '${escapeHtml(orig)}'</a>`;
+    }
+
+    // helpers for matching
+    function findMonasteryByName(q){
+      // exact & case-insensitive match over properties' name
+      for(const f of data.features){ if(f.properties.name.toLowerCase() === q.toLowerCase()) return {props:f.properties, coords:f.geometry.coordinates}; }
+      return null;
+    }
+    function findMonasteryByPartial(q){
+      for(const f of data.features){ if(f.properties.name.toLowerCase().includes(q.toLowerCase())) return {props:f.properties, coords:f.geometry.coordinates}; }
+      return null;
+    }
+
+    function buildCorpus(){
+      const arr = [];
+      // monasteries
+      data.features.forEach(f => {
+        arr.push({ title: f.properties.name, text:(f.properties.desc + ' ' + (meta[f.properties.name] ? meta[f.properties.name].history : '')), snippet: (f.properties.desc || '').slice(0,180), action:`map.setView([${f.geometry.coordinates[1]}, ${f.geometry.coordinates[0]}],13); showDetail(${JSON.stringify(f.properties).replace(/</g,'\\u003c')}, [${f.geometry.coordinates[0]}, ${f.geometry.coordinates[1]}])` });
+      });
+      // events
+      events.forEach(e => arr.push({ title: e.title, text: e.details + ' ' + e.where, snippet: e.details.slice(0,180), action:`document.getElementById('festivals').scrollIntoView({behavior:'smooth'})` }));
+      return arr;
+    }
+
+    function overlapScore(q, text){
+      const qTokens = q.replace(/[.,\/#!?$%\^&\*;:{}=\-_`~()]/g,' ').split(/\s+/).filter(Boolean);
+      const t = text.toLowerCase(); let score=0; qTokens.forEach(w=>{ if(t.includes(w)) score+=1; });
+      return score;
+    }
+
+    // small utility to make sure showDetail call from chatbot is possible
+    window.showDetail = window.showDetail || showDetail;
+
+    /* ------------------ end chatbot ------------------ */
+
   </script>
 </body>
 </html>
